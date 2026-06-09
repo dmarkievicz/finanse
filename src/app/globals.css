@@ -12,6 +12,8 @@
   --muted: #64748b;
   --accent: #0d9488;
   --danger: #dc2626;
+  --success: #059669;
+  --gold: #d97706;
 }
 
 @theme inline {

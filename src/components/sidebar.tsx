@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Pulpit", icon: LayoutDashboard },
   { href: "/transactions", label: "Transakcje", icon: ArrowLeftRight },
   { href: "/accounts", label: "Konta", icon: Wallet },
   { href: "/investments", label: "Inwestycje", icon: TrendingUp },
