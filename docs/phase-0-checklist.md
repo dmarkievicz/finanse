@@ -27,8 +27,8 @@
 
 > **Instrukcja krok po kroku:** [`docs/setup-supabase-github.md`](setup-supabase-github.md)
 
-- [ ] **Supabase** — projekt `finanse-dev` + klucze w `.env.local`
-- [ ] **GitHub** — prywatne repo `finanse` + `git push`
+- [x] **Supabase** — projekt `finanse-dev` + klucze w `.env.local`
+- [x] **GitHub** — repo `finanse` + `git push` → https://github.com/dmarkievicz/finanse
 - [ ] **Vercel** — opcjonalnie teraz, wymagane przed Fazą 1
 
 ### Zapisz dane projektu
