@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js (Faza 1+)
+.next/
+out/
+build/
+dist/
+
+# Environment — NIGDY nie commituj kluczy
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+# Dane finansowe — pliki zawierają wrażliwe informacje
+data/raw/**
+!data/raw/.gitkeep
+data/processed/**
+!data/processed/.gitkeep
+data/processed/*.csv
+data/processed/audit-report.json
+data/samples/**
+!data/samples/.gitkeep
+*.xlsx
+*.xls
+
+# Logs & OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Test coverage
+coverage/

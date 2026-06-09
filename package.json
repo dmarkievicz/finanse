@@ -1,0 +1,21 @@
+{
+  "name": "finanse",
+  "version": "1.0.0",
+  "description": "Prywatny system zarządzania finansami osobistymi — transfery, cashflow, inwestycje, majątek netto.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "audit": "node scripts/audit-excel.mjs",
+    "audit:csv": "node scripts/audit-csv.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
