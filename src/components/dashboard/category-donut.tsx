@@ -1,13 +1,12 @@
-const categories = [
-  { name: "Spożywcze", pct: 28, color: "#1e3a5f" },
-  { name: "Tipple", pct: 15, color: "#0d9488" },
-  { name: "Rachunki", pct: 18, color: "#3b82f6" },
-  { name: "Rozrywka", pct: 12, color: "#8b5cf6" },
-  { name: "Transport", pct: 10, color: "#f59e0b" },
-  { name: "Inne", pct: 17, color: "#94a3b8" },
-];
+import type { CategorySlice } from "@/lib/queries/dashboard";
+import { formatPln } from "@/lib/format";
 
-function buildConic() {
+interface CategoryDonutProps {
+  categories: CategorySlice[];
+  total: number;
+}
+
+function buildConic(categories: CategorySlice[]) {
   let acc = 0;
   return categories
     .map((c) => {
@@ -18,7 +17,19 @@ function buildConic() {
     .join(", ");
 }
 
-export function CategoryDonut() {
+export function CategoryDonut({ categories, total }: CategoryDonutProps) {
+  if (categories.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="mb-4">
+          <h3 className="font-semibold text-foreground">Wydatki wg kategorii</h3>
+          <p className="text-xs text-muted">Bieżący miesiąc</p>
+        </div>
+        <p className="py-8 text-center text-sm text-muted">Brak wydatków w tym miesiącu</p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="mb-4">
@@ -28,10 +39,12 @@ export function CategoryDonut() {
       <div className="flex items-center gap-6">
         <div
           className="relative h-36 w-36 shrink-0 rounded-full"
-          style={{ background: `conic-gradient(${buildConic()})` }}
+          style={{ background: `conic-gradient(${buildConic(categories)})` }}
         >
           <div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-card text-center">
-            <span className="text-lg font-bold text-foreground">12 870</span>
+            <span className="text-lg font-bold text-foreground">
+              {formatPln(total).replace(/\s*zł$/, "")}
+            </span>
             <span className="text-[10px] text-muted">zł łącznie</span>
           </div>
         </div>

@@ -14,16 +14,20 @@ import {
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
+interface SidebarProps {
+  needsReviewCount?: number;
+}
+
 const navItems = [
   { href: "/dashboard", label: "Pulpit", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transakcje", icon: ArrowLeftRight },
+  { href: "/transactions", label: "Transakcje", icon: ArrowLeftRight, badgeKey: "review" as const },
   { href: "/accounts", label: "Konta", icon: Wallet },
   { href: "/investments", label: "Inwestycje", icon: TrendingUp },
   { href: "/imports", label: "Import", icon: Upload },
   { href: "/settings", label: "Ustawienia", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ needsReviewCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -48,8 +52,9 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon, badgeKey }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
+          const badge = badgeKey === "review" ? needsReviewCount : 0;
           return (
             <Link
               key={href}
@@ -62,7 +67,12 @@ export function Sidebar() {
               )}
             >
               <Icon className="h-4 w-4" />
-              {label}
+              <span className="flex-1">{label}</span>
+              {badge > 0 && (
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </Link>
           );
         })}

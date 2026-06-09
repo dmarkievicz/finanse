@@ -4,6 +4,8 @@ import type { Database } from "@/types/database";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
+export type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
 export async function createClient() {
   const cookieStore = await cookies();
 

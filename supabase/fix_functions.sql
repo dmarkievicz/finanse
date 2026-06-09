@@ -1,6 +1,8 @@
+-- Uruchom TYLKO ten plik jeśli tabele już istnieją, a funkcje się nie utworzyły.
+-- (naprawa ORDER BY w get_category_breakdown)
+
 -- Funkcje agregujące — dashboard i raporty
 
--- Saldo konta w PLN (suma entries do daty)
 CREATE OR REPLACE FUNCTION get_account_balance(
   p_account_id uuid,
   p_as_of_date date DEFAULT CURRENT_DATE
@@ -19,7 +21,6 @@ AS $$
     AND t.user_id = auth.uid();
 $$;
 
--- Salda wszystkich kont użytkownika
 CREATE OR REPLACE FUNCTION get_account_balances(
   p_as_of_date date DEFAULT CURRENT_DATE
 )
@@ -52,7 +53,6 @@ AS $$
   ORDER BY a.name;
 $$;
 
--- Cashflow miesięczny (bez transferów i exchange)
 CREATE OR REPLACE FUNCTION get_monthly_cashflow(
   p_year  int,
   p_month int
@@ -87,7 +87,6 @@ AS $$
   FROM month_tx;
 $$;
 
--- Majątek netto (suma sald kont — bez inwestycji na razie)
 CREATE OR REPLACE FUNCTION get_net_worth(
   p_as_of_date date DEFAULT CURRENT_DATE
 )
@@ -100,7 +99,6 @@ AS $$
   FROM get_account_balances(p_as_of_date);
 $$;
 
--- Wydatki wg kategorii w zakresie dat
 CREATE OR REPLACE FUNCTION get_category_breakdown(
   p_from date,
   p_to   date
@@ -132,7 +130,6 @@ AS $$
   ORDER BY 3 DESC;
 $$;
 
--- Liczba transakcji wymagających przeglądu
 CREATE OR REPLACE FUNCTION get_needs_review_count()
 RETURNS bigint
 LANGUAGE sql

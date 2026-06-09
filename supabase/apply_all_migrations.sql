@@ -600,7 +600,7 @@ AS $$
     AND t.date BETWEEN p_from AND p_to
     AND t.status != 'needs_review'
   GROUP BY c.id, c.name
-  ORDER BY total_pln DESC;
+  ORDER BY 3 DESC;
 $$;
 
 -- Liczba transakcji wymagajÄ…cych przeglÄ…du

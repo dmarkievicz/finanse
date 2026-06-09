@@ -4,11 +4,11 @@ Migracje są w `supabase/migrations/`. Połączony plik: `supabase/apply_all_mig
 
 ## Sposób A — SQL Editor (najszybszy, bez CLI)
 
-1. Otwórz [Supabase Dashboard](https://supabase.com/dashboard) → projekt **finanse-dev**
-2. **SQL Editor** → **New query**
-3. Otwórz lokalnie plik `supabase/apply_all_migrations.sql`
-4. Skopiuj całą zawartość → wklej → **Run**
-5. Sprawdź **Table Editor** — powinny być tabele: `accounts`, `transactions`, `currencies`…
+Uruchom **dwa pliki osobno** (nie jeden duży — błąd na końcu cofa całość):
+
+1. **KROK 1:** `supabase/apply_schema_only.sql` → SQL Editor → **Run**
+2. **KROK 2:** `supabase/fix_functions.sql` → SQL Editor → **Run**
+3. Sprawdź **Table Editor** — tabele: `accounts`, `transactions`, `transaction_entries`…
 
 ## Sposób B — Supabase CLI
 

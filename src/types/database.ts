@@ -140,7 +140,7 @@ export interface CategoryBreakdown {
   tx_count: number;
 }
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       accounts: { Row: Account; Insert: Partial<Account>; Update: Partial<Account> };
@@ -152,6 +152,42 @@ export interface Database {
         Update: Partial<TransactionEntry>;
       };
       currencies: { Row: Currency; Insert: Partial<Currency>; Update: Partial<Currency> };
+      goals: {
+        Row: {
+          id: string;
+          name: string;
+          target_amount: number | null;
+          current_amount: number;
+          target_date: string | null;
+          is_active: boolean;
+        };
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
+      subcategories: {
+        Row: Subcategory;
+        Insert: Partial<Subcategory>;
+        Update: Partial<Subcategory>;
+      };
     };
+    Views: Record<string, never>;
+    Functions: {
+      get_net_worth: { Args: { p_as_of_date?: string }; Returns: number };
+      get_account_balances: {
+        Args: { p_as_of_date?: string };
+        Returns: AccountBalance[];
+      };
+      get_monthly_cashflow: {
+        Args: { p_year: number; p_month: number };
+        Returns: MonthlyCashflow[];
+      };
+      get_category_breakdown: {
+        Args: { p_from: string; p_to: string };
+        Returns: CategoryBreakdown[];
+      };
+      get_needs_review_count: { Args: Record<string, never>; Returns: number };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
-}
+};

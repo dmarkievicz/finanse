@@ -21,3 +21,22 @@ export function greetingPl(hour: number): string {
   if (hour < 18) return "Cześć";
   return "Dobry wieczór";
 }
+
+export function formatDate(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date + "T00:00:00") : date;
+  return new Intl.DateTimeFormat("pl-PL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(d);
+}
+
+export function formatPlnSigned(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return new Intl.NumberFormat("pl-PL", {
+    style: "currency",
+    currency: "PLN",
+    signDisplay: "exceptZero",
+    maximumFractionDigits: 0,
+  }).format(value);
+}

@@ -1,9 +1,11 @@
+import Link from "next/link";
 import {
   Wallet,
   TrendingUp,
   TrendingDown,
   PiggyBank,
   Calendar,
+  AlertCircle,
 } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { CashflowChart } from "@/components/dashboard/cashflow-chart";
@@ -12,8 +14,10 @@ import { AccountBalances } from "@/components/dashboard/account-balances";
 import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 import { InvestmentsPanel } from "@/components/dashboard/investments-panel";
 import { GoalProgress } from "@/components/dashboard/goal-progress";
+import { CurrencyExposure } from "@/components/dashboard/currency-exposure";
 import { createClient } from "@/lib/supabase/server";
-import { greetingPl, formatMonthYear } from "@/lib/format";
+import { greetingPl, formatMonthYear, formatPln, formatPercent } from "@/lib/format";
+import { fetchDashboardData, calcTrendPercent } from "@/lib/queries/dashboard";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -25,9 +29,27 @@ export default async function DashboardPage() {
   const hour = now.getHours();
   const name = user?.email?.split("@")[0] ?? "Damian";
 
+  const data = await fetchDashboardData(supabase, now);
+  const { currentCashflow, previousCashflow } = data;
+
+  const savingsRate =
+    currentCashflow.income_pln > 0
+      ? (currentCashflow.surplus_pln / currentCashflow.income_pln) * 100
+      : 0;
+  const prevSavingsRate =
+    previousCashflow.income_pln > 0
+      ? (previousCashflow.surplus_pln / previousCashflow.income_pln) * 100
+      : 0;
+
+  const incomeTrend = calcTrendPercent(currentCashflow.income_pln, previousCashflow.income_pln);
+  const expenseTrend = calcTrendPercent(currentCashflow.expense_pln, previousCashflow.expense_pln);
+  const savingsTrend =
+    prevSavingsRate > 0
+      ? `${savingsRate - prevSavingsRate >= 0 ? "+" : ""}${(savingsRate - prevSavingsRate).toFixed(1)} p.p.`
+      : undefined;
+
   return (
     <div className="space-y-6">
-      {/* Nagłówek */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-accent">
@@ -42,96 +64,91 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm shadow-sm">
           <Calendar className="h-4 w-4 text-muted" />
-          <span className="text-muted">Sty 2025 — </span>
           <span className="font-medium text-foreground">{formatMonthYear(now)}</span>
         </div>
       </div>
 
-      {/* Cel */}
-      <GoalProgress />
+      {data.needsReviewCount > 0 && (
+        <Link
+          href="/transactions?review=1"
+          className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm transition hover:bg-red-100/80"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
+          <span className="text-red-800">
+            <strong>{data.needsReviewCount}</strong> transakcji wymaga poprawy — kliknij, aby przejrzeć
+          </span>
+        </Link>
+      )}
 
-      {/* KPI */}
+      <GoalProgress
+        name={data.goal!.name}
+        current={data.goal!.current}
+        target={data.goal!.target}
+        targetDate={data.goal!.targetDate}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Majątek netto"
-          value="847 320 zł"
-          sub="wszystkie aktywa − zobowiązania"
+          value={formatPln(data.netWorth)}
+          sub="suma sald wszystkich kont"
           icon={Wallet}
-          trend={{ value: "+2,4%", positive: true }}
           accent="default"
         />
         <KpiCard
           label="Przychody w miesiącu"
-          value="18 450 zł"
+          value={formatPln(currentCashflow.income_pln)}
           sub="bez transferów wewnętrznych"
           icon={TrendingUp}
-          trend={{ value: "+5,1%", positive: true }}
+          trend={incomeTrend ? { value: incomeTrend, positive: currentCashflow.income_pln >= previousCashflow.income_pln } : undefined}
           accent="green"
         />
         <KpiCard
           label="Wydatki w miesiącu"
-          value="12 870 zł"
+          value={formatPln(currentCashflow.expense_pln)}
           sub="wydatki konsumpcyjne"
           icon={TrendingDown}
-          trend={{ value: "−3,2%", positive: true }}
+          trend={
+            expenseTrend
+              ? {
+                  value: expenseTrend,
+                  positive: currentCashflow.expense_pln <= previousCashflow.expense_pln,
+                }
+              : undefined
+          }
           accent="red"
         />
         <KpiCard
           label="Stopa oszczędności"
-          value="30,2%"
+          value={formatPercent(savingsRate)}
           sub="nadwyżka / przychody"
           icon={PiggyBank}
-          trend={{ value: "+1,8 p.p.", positive: true }}
+          trend={
+            savingsTrend
+              ? { value: savingsTrend, positive: savingsRate >= prevSavingsRate }
+              : undefined
+          }
           accent="gold"
         />
       </div>
 
-      {/* Wykresy */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <CashflowChart />
-        <CategoryDonut />
+        <CashflowChart data={data.cashflowHistory} />
+        <CategoryDonut categories={data.categoryBreakdown} total={data.categoryTotal} />
       </div>
 
-      {/* Dół */}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <AccountBalances />
+          <AccountBalances accounts={data.accountBalances} />
         </div>
         <div className="lg:col-span-2">
-          <RecentTransactions />
+          <RecentTransactions transactions={data.recentTransactions} />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <InvestmentsPanel />
-        <div className="rounded-2xl border border-dashed border-border bg-card/50 p-6">
-          <h3 className="font-semibold text-foreground">Waluty</h3>
-          <p className="mt-1 text-xs text-muted">Ekspozycja na PLN, EUR, USD</p>
-          <div className="mt-4 space-y-3">
-            {[
-              { code: "PLN", pct: 72, color: "#1e3a5f" },
-              { code: "EUR", pct: 22, color: "#0d9488" },
-              { code: "USD", pct: 6, color: "#3b82f6" },
-            ].map((c) => (
-              <div key={c.code}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span className="font-medium">{c.code}</span>
-                  <span className="text-muted">{c.pct}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${c.pct}%`, background: c.color }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 text-xs text-muted">
-            Po imporcie danych z Excela (22 442 transakcje) wszystkie liczby będą
-            rzeczywiste i klikalne.
-          </p>
-        </div>
+        <CurrencyExposure currencies={data.currencyExposure} />
       </div>
     </div>
   );
