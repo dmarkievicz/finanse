@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "audit": "node scripts/audit-excel.mjs",
-    "audit:csv": "node scripts/audit-csv.mjs"
+    "audit:csv": "node scripts/audit-csv.mjs",
+    "db:push": "supabase db push",
+    "db:migrate": "node scripts/apply-migrations.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
