@@ -10,8 +10,8 @@ Prywatny system zarządzania finansami osobistymi — transfery, cashflow, inwes
 
 | Faza | Status | Opis |
 |------|--------|------|
-| **0 — Przygotowanie** | 🟡 W trakcie | Audyt danych, dokumentacja, narzędzia |
-| 1 — Fundament | ⬜ | Next.js, Auth, MFA |
+| **0 — Przygotowanie** | ✅ | Audyt danych, dokumentacja, Supabase, GitHub |
+| **1 — Fundament** | 🟡 W trakcie | Next.js, Auth, layout |
 | 2 — Schemat bazy | ⬜ | Migracje SQL, RLS |
 | 3 — Import Excel | ⬜ | 22k+ wierszy |
 | … | | |
@@ -20,7 +20,19 @@ Szczegóły: [`docs/phase-0-checklist.md`](docs/phase-0-checklist.md)
 
 ---
 
-## Faza 0 — co zrobić teraz
+## Uruchomienie (Faza 1)
+
+```bash
+npm run dev
+```
+
+→ http://localhost:3000
+
+Szczegóły: [`docs/phase-1-setup.md`](docs/phase-1-setup.md)
+
+---
+
+## Faza 0 — archiwum
 
 ### 1. Eksportuj dane z Excela
 
