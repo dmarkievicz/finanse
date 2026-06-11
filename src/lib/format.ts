@@ -31,6 +31,35 @@ export function formatDate(date: string | Date): string {
   }).format(d);
 }
 
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat("pl-PL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
+export function monthRange(month: string): { from: string; to: string } | null {
+  const m = month.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const mon = Number(m[2]);
+  const from = `${year}-${m[2]}-01`;
+  const lastDay = new Date(year, mon, 0).getDate();
+  const to = `${year}-${m[2]}-${String(lastDay).padStart(2, "0")}`;
+  return { from, to };
+}
+
+export function formatMonthLabel(month: string): string {
+  const m = month.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return month;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+  return new Intl.DateTimeFormat("pl-PL", { month: "long", year: "numeric" }).format(d);
+}
+
 export function formatPlnSigned(value: number | null | undefined): string {
   if (value == null) return "—";
   return new Intl.NumberFormat("pl-PL", {

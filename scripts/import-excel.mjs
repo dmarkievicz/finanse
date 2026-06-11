@@ -8,8 +8,8 @@ import { createHash } from "crypto";
 import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync } from "fs";
 import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
-import XLSX from "xlsx";
 import { createClient } from "@supabase/supabase-js";
+import { readExcelRows } from "./lib/excel-rows.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -85,9 +85,11 @@ function parseNumber(val) {
 
 function excelDateToISO(val) {
   if (!val) return null;
+  if (val instanceof Date) return val.toISOString().slice(0, 10);
   if (typeof val === "number") {
-    const d = XLSX.SSF.parse_date_code(val);
-    return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    const d = new Date(epoch.getTime() + val * 86400000);
+    return d.toISOString().slice(0, 10);
   }
   const s = String(val).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -255,6 +257,20 @@ function validateRow(row) {
     }
   }
 
+  if (txType === "exchange") {
+    if (!row.source_account || !row.target_account) {
+      warnings.push({ code: "R004", message: "Przewalutowanie niekompletne" });
+      needsReview = true;
+    }
+  }
+
+  if (txType === "adjustment") {
+    if (!row.source_account && !row.target_account) {
+      warnings.push({ code: "R005", message: "Korekta bez konta" });
+      needsReview = true;
+    }
+  }
+
   const hasErrors = issues.length > 0;
   return {
     txType,
@@ -310,6 +326,34 @@ function buildEntries(row, validation, accountMap) {
       amount_pln: amountPln,
       sort_order: 1,
     });
+  } else if (validation.txType === "exchange") {
+    entries.push({
+      account_id: accountMap.get(row.source_account),
+      amount: -absAmount,
+      currency: row.currency,
+      exchange_rate: row.exchange_rate,
+      amount_pln: -amountPln,
+      sort_order: 0,
+    });
+    entries.push({
+      account_id: accountMap.get(row.target_account),
+      amount: absAmount,
+      currency: row.currency,
+      exchange_rate: row.exchange_rate,
+      amount_pln: amountPln,
+      sort_order: 1,
+    });
+  } else if (validation.txType === "adjustment") {
+    const acc = row.target_account || row.source_account;
+    const signed = row.amount < 0 ? -amountPln : amountPln;
+    entries.push({
+      account_id: accountMap.get(acc),
+      amount: row.amount,
+      currency: row.currency,
+      exchange_rate: row.exchange_rate,
+      amount_pln: signed,
+      sort_order: 0,
+    });
   }
 
   return entries.filter((e) => e.account_id);
@@ -364,7 +408,12 @@ async function ensureAccounts(supabase, userId, accountNames) {
       name,
       account_type: inferAccountType(name),
       default_currency: inferDefaultCurrency(name),
-      is_active: true,
+      imported_at: new Date().toISOString(),
+      is_active: false,
+      lifecycle_status: "archived",
+      show_on_dashboard: false,
+      include_in_net_worth: false,
+      needs_review: true,
     });
   }
 
@@ -464,8 +513,7 @@ async function processBatch(supabase, userId, importId, batch, accountMap, catMa
     needsReview: 0,
   };
 
-  const importRowsPayload = [];
-  const pendingTransactions = [];
+  const rpcItems = [];
 
   for (const item of batch) {
     const { row, validation, importHash } = item;
@@ -477,16 +525,17 @@ async function processBatch(supabase, userId, importId, batch, accountMap, catMa
     }
 
     if (validation.hasErrors) {
-      importRowsPayload.push({
-        import_id: importId,
-        user_id: userId,
-        row_number: row.row_number,
-        raw_data: row.raw_data,
-        import_hash: importHash,
-        status: "error",
-        validation_errors: validation.issues,
+      rpcItems.push({
+        import_row: {
+          row_number: row.row_number,
+          raw_data: row.raw_data,
+          import_hash: importHash,
+          status: "error",
+          validation_errors: validation.issues,
+        },
+        transaction: null,
+        entries: [],
       });
-      stats.errors++;
       continue;
     }
 
@@ -499,104 +548,51 @@ async function processBatch(supabase, userId, importId, batch, accountMap, catMa
     const txStatus = validation.needsReview ? "needs_review" : "confirmed";
     if (validation.needsReview) stats.needsReview++;
 
-    const entries = buildEntries(row, validation, accountMap);
+    const entries = buildEntries(row, validation, accountMap).map((e, idx) => ({
+      ...e,
+      sort_order: e.sort_order ?? idx,
+    }));
 
-    importRowsPayload.push({
-      import_id: importId,
-      user_id: userId,
-      row_number: row.row_number,
-      raw_data: row.raw_data,
-      import_hash: importHash,
-      status: "valid",
-      validation_errors: allIssues.length ? allIssues : null,
-      _tx: {
-        user_id: userId,
+    rpcItems.push({
+      import_row: {
+        row_number: row.row_number,
+        raw_data: row.raw_data,
+        import_hash: importHash,
+        status: "valid",
+        validation_errors: allIssues.length ? allIssues : null,
+      },
+      transaction: {
         date: row.date,
         type: validation.txType,
         description: row.category || row.details?.slice(0, 80) || null,
         details: row.details || null,
         category_id: categoryId,
         subcategory_id: subcategoryId,
-        import_id: importId,
         status: txStatus,
         validation_issues: allIssues,
-        entries,
       },
+      entries,
     });
 
-    pendingTransactions.push(importRowsPayload[importRowsPayload.length - 1]);
     existingHashes.add(importHash);
   }
 
-  if (importRowsPayload.length === 0) return stats;
+  if (rpcItems.length === 0) return stats;
 
-  const { data: insertedRows, error: rowError } = await supabase
-    .from("import_rows")
-    .insert(importRowsPayload.map(({ _tx, ...rest }) => rest))
-    .select("id, import_hash, status");
+  const { data, error } = await supabase.rpc("import_transaction_batch", {
+    p_user_id: userId,
+    p_import_id: importId,
+    p_items: rpcItems,
+  });
 
-  if (rowError) throw new Error(`Błąd insert import_rows: ${rowError.message}`);
-
-  const rowByHash = new Map(insertedRows.map((r) => [r.import_hash, r]));
-
-  const txPayload = [];
-  for (const item of pendingTransactions) {
-    const inserted = rowByHash.get(item.import_hash);
-    if (!inserted || inserted.status !== "valid") continue;
-    txPayload.push({ ...item._tx, _import_row_id: inserted.id, _import_hash: item.import_hash });
-  }
-
-  if (txPayload.length === 0) return stats;
-
-  const { data: insertedTx, error: txError } = await supabase
-    .from("transactions")
-    .insert(
-      txPayload.map(({ entries, _import_row_id, _import_hash, ...tx }) => ({
-        ...tx,
-        validation_issues: tx.validation_issues,
-      }))
-    )
-    .select("id");
-
-  if (txError) throw new Error(`Błąd insert transactions: ${txError.message}`);
-
-  const entriesPayload = [];
-  const rowUpdates = [];
-
-  for (let i = 0; i < insertedTx.length; i++) {
-    const tx = insertedTx[i];
-    const src = txPayload[i];
-    const importRow = rowByHash.get(src._import_hash);
-
-    rowUpdates.push({ id: importRow.id, transaction_id: tx.id, status: "imported" });
-
-    for (const entry of src.entries) {
-      entriesPayload.push({
-        transaction_id: tx.id,
-        user_id: userId,
-        ...entry,
-      });
-    }
-    stats.imported++;
-  }
-
-  if (entriesPayload.length > 0) {
-    const { error: entryError } = await supabase.from("transaction_entries").insert(entriesPayload);
-    if (entryError) throw new Error(`Błąd insert transaction_entries: ${entryError.message}`);
-  }
-
-  const UPDATE_CHUNK = 50;
-  for (let i = 0; i < rowUpdates.length; i += UPDATE_CHUNK) {
-    const chunk = rowUpdates.slice(i, i + UPDATE_CHUNK);
-    await Promise.all(
-      chunk.map((upd) =>
-        supabase
-          .from("import_rows")
-          .update({ transaction_id: upd.transaction_id, status: upd.status })
-          .eq("id", upd.id)
-      )
+  if (error) {
+    throw new Error(
+      `Błąd RPC import_transaction_batch: ${error.message}. Zastosuj migrację 10: npm run db:migrate:10`
     );
   }
+
+  stats.imported = Number(data?.imported ?? 0);
+  stats.errors = Number(data?.errors ?? 0);
 
   return stats;
 }
@@ -629,9 +625,7 @@ async function main() {
   const fileBuffer = readFileSync(filePath);
   const fileHash = createHash("sha256").update(fileBuffer).digest("hex");
 
-  const wb = XLSX.read(fileBuffer, { type: "buffer" });
-  const sheetName = wb.SheetNames[0];
-  const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
+  const rawRows = await readExcelRows(fileBuffer);
   const rows = rawRows.map((raw, i) => normalizeRow(raw, i + 2));
 
   console.log(`📊 Wierszy: ${rows.length}`);
@@ -662,7 +656,12 @@ async function main() {
     if (validation.txType === "expense") {
       accountNames.add(validation.useCashAccount ? CASH_ACCOUNT : row.source_account);
     }
-    if (validation.txType === "transfer" && validation.canCreateEntries) {
+    if (
+      (validation.txType === "transfer" ||
+        validation.txType === "exchange" ||
+        validation.txType === "adjustment") &&
+      validation.canCreateEntries
+    ) {
       if (row.source_account) accountNames.add(row.source_account);
       if (row.target_account) accountNames.add(row.target_account);
     }
@@ -838,6 +837,10 @@ async function main() {
   console.log(`   Błędy:             ${totals.errors}`);
   console.log(`   needs_review:      ${totals.needsReview}`);
   console.log(`   Ostrzeżenia:       ${totals.warnings}`);
+  if (newAccounts.length > 0) {
+    console.log(`\n📋 Nowe konta (${newAccounts.length}) — domyślnie archiwalne.`);
+    console.log("   Aktywuj aktualne konta w aplikacji: /accounts/manage");
+  }
   console.log(`\n📄 Raport: ${reportPath}`);
 }
 

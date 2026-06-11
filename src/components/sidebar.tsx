@@ -10,6 +10,9 @@ import {
   Upload,
   Settings,
   LogOut,
+  Tags,
+  PiggyBank,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -18,11 +21,17 @@ interface SidebarProps {
   needsReviewCount?: number;
 }
 
-const navItems = [
+const primaryNav = [
   { href: "/dashboard", label: "Pulpit", icon: LayoutDashboard },
+  { href: "/transactions/new", label: "Dodaj transakcję", icon: Plus, highlight: true },
   { href: "/transactions", label: "Transakcje", icon: ArrowLeftRight, badgeKey: "review" as const },
   { href: "/accounts", label: "Konta", icon: Wallet },
+  { href: "/categories", label: "Kategorie", icon: Tags },
+  { href: "/budgets", label: "Budżety", icon: PiggyBank },
   { href: "/investments", label: "Inwestycje", icon: TrendingUp },
+];
+
+const secondaryNav = [
   { href: "/imports", label: "Import", icon: Upload },
   { href: "/settings", label: "Ustawienia", icon: Settings },
 ];
@@ -52,8 +61,16 @@ export function Sidebar({ needsReviewCount = 0 }: SidebarProps) {
         </div>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map(({ href, label, icon: Icon, badgeKey }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+        {primaryNav.map(({ href, label, icon: Icon, badgeKey, highlight }) => {
+          const active =
+            pathname === href ||
+            (href === "/transactions/new" && pathname === "/transactions/new") ||
+            (href === "/transactions" &&
+              (pathname === "/transactions" ||
+                (pathname.startsWith("/transactions/") && pathname !== "/transactions/new"))) ||
+            (href === "/categories" && pathname.startsWith("/categories")) ||
+            (href === "/accounts" && pathname.startsWith("/accounts")) ||
+            (href === "/investments" && pathname.startsWith("/investments"));
           const badge = badgeKey === "review" ? needsReviewCount : 0;
           return (
             <Link
@@ -63,7 +80,9 @@ export function Sidebar({ needsReviewCount = 0 }: SidebarProps) {
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition",
                 active
                   ? "bg-white/15 font-medium text-white"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                  : highlight
+                    ? "bg-accent/90 font-medium text-white hover:bg-accent"
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -73,6 +92,27 @@ export function Sidebar({ needsReviewCount = 0 }: SidebarProps) {
                   {badge > 99 ? "99+" : badge}
                 </span>
               )}
+            </Link>
+          );
+        })}
+
+        <div className="my-3 border-t border-white/10" />
+
+        {secondaryNav.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition",
+                active
+                  ? "bg-white/15 font-medium text-white"
+                  : "text-white/50 hover:bg-white/10 hover:text-white/80"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="flex-1">{label}</span>
             </Link>
           );
         })}

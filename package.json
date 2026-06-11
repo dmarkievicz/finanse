@@ -12,6 +12,14 @@
     "audit:csv": "node scripts/audit-csv.mjs",
     "import:excel": "node scripts/import-excel.mjs",
     "import:excel:dry": "node scripts/import-excel.mjs --dry-run",
+    "test": "node --experimental-strip-types --test src/lib/balances/*.test.ts",
+    "verify:balances": "node scripts/verify-balances.mjs",
+    "reconcile:balances": "node scripts/reconcile-balances.mjs",
+    "clear:all": "node scripts/clear-all-data.mjs --yes",
+    "db:migrate:10": "node scripts/apply-migration-10.mjs",
+    "db:migrate:11": "node scripts/apply-migration-11.mjs",
+    "setup:all": "node scripts/run-all.mjs",
+    "setup:all:force": "node scripts/run-all.mjs --force-import",
     "db:push": "supabase db push",
     "db:migrate": "node scripts/apply-migrations.mjs",
     "db:migrate:api": "node scripts/apply-migrations-api.mjs"
@@ -21,11 +29,13 @@
     "@supabase/supabase-js": "^2.49.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "fflate": "^0.8.3",
     "lucide-react": "^0.511.0",
     "next": "^15.3.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "tailwind-merge": "^3.3.0"
+    "tailwind-merge": "^3.3.0",
+    "read-excel-file": "^5.8.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
@@ -35,9 +45,9 @@
     "@types/react-dom": "^19.1.5",
     "eslint": "^9.27.0",
     "eslint-config-next": "^15.3.3",
+    "pg": "^8.21.0",
     "postcss": "^8.5.4",
     "tailwindcss": "^4.1.8",
-    "typescript": "^5.8.3",
-    "xlsx": "^0.18.5"
+    "typescript": "^5.8.3"
   }
 }

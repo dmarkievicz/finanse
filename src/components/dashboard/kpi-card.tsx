@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { type LucideIcon, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +9,7 @@ interface KpiCardProps {
   icon: LucideIcon;
   trend?: { value: string; positive: boolean };
   accent?: "default" | "green" | "red" | "gold";
+  href?: string;
 }
 
 const accentStyles = {
@@ -17,9 +19,14 @@ const accentStyles = {
   gold: "from-amber-500/15 to-amber-500/5 text-amber-600",
 };
 
-export function KpiCard({ label, value, sub, icon: Icon, trend, accent = "default" }: KpiCardProps) {
-  return (
-    <div className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md">
+export function KpiCard({ label, value, sub, icon: Icon, trend, accent = "default", href }: KpiCardProps) {
+  const inner = (
+    <div
+      className={cn(
+        "group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition",
+        href && "hover:border-primary/30 hover:shadow-md cursor-pointer"
+      )}
+    >
       <div className="flex items-start justify-between">
         <div
           className={cn(
@@ -48,6 +55,16 @@ export function KpiCard({ label, value, sub, icon: Icon, trend, accent = "defaul
       <p className="mt-4 text-sm font-medium text-muted">{label}</p>
       <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-muted">{sub}</p>}
+      {href && (
+        <p className="mt-2 text-xs font-medium text-accent opacity-0 transition group-hover:opacity-100">
+          Zobacz szczegóły →
+        </p>
+      )}
     </div>
   );
+
+  if (href) {
+    return <Link href={href}>{inner}</Link>;
+  }
+  return inner;
 }

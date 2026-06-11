@@ -28,6 +28,8 @@ export type TransactionStatus =
 
 export type CategoryType = "income" | "expense" | "both";
 
+export type AccountLifecycleStatus = "active" | "inactive" | "archived";
+
 export interface Currency {
   code: string;
   name: string;
@@ -42,10 +44,34 @@ export interface Account {
   account_type: AccountType;
   default_currency: string;
   is_active: boolean;
+  lifecycle_status: AccountLifecycleStatus;
+  show_on_dashboard: boolean;
+  include_in_net_worth: boolean;
+  needs_review: boolean;
+  imported_at: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+export interface AccountManageRow extends AccountBalance {
+  lifecycle_status: AccountLifecycleStatus;
+  show_on_dashboard: boolean;
+  include_in_net_worth: boolean;
+  needs_review: boolean;
+  tx_count: number;
+  opening_balance_pln: number | null;
+  has_opening_balance: boolean;
+  history_balance_pln: number;
+  balance: number;
+}
+
+export interface UserSettingsRow {
+  user_id: string;
+  analysis_start_date: string | null;
+  default_view_mode: "current" | "full_history";
+  base_currency: string;
 }
 
 export interface Category {
@@ -80,6 +106,7 @@ export interface Transaction {
   subcategory_id: string | null;
   import_id: string | null;
   status: TransactionStatus;
+  is_opening_balance: boolean;
   validation_issues: ValidationIssue[];
   created_at: string;
   updated_at: string;
@@ -172,20 +199,33 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
-      get_net_worth: { Args: { p_as_of_date?: string }; Returns: number };
+      user_settings: {
+        Row: UserSettingsRow;
+        Insert: Partial<UserSettingsRow>;
+        Update: Partial<UserSettingsRow>;
+      };
+      get_net_worth: {
+        Args: { p_as_of_date?: string; p_mode?: string };
+        Returns: number;
+      };
       get_account_balances: {
-        Args: { p_as_of_date?: string };
+        Args: { p_as_of_date?: string; p_mode?: string };
         Returns: AccountBalance[];
       };
       get_monthly_cashflow: {
-        Args: { p_year: number; p_month: number };
+        Args: { p_year: number; p_month: number; p_mode?: string };
         Returns: MonthlyCashflow[];
       };
       get_category_breakdown: {
-        Args: { p_from: string; p_to: string };
+        Args: { p_from: string; p_to: string; p_mode?: string };
         Returns: CategoryBreakdown[];
       };
       get_needs_review_count: { Args: Record<string, never>; Returns: number };
+      get_all_account_balances: {
+        Args: { p_as_of_date?: string };
+        Returns: AccountManageRow[];
+      };
+      get_accounts_needs_review_count: { Args: Record<string, never>; Returns: number };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

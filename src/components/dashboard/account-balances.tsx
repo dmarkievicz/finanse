@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { AccountBalance } from "@/types/database";
 import { formatPln } from "@/lib/format";
 
@@ -22,9 +23,14 @@ export function AccountBalances({ accounts }: AccountBalancesProps) {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="mb-4">
-        <h3 className="font-semibold text-foreground">Salda kont</h3>
-        <p className="text-xs text-muted">Przeliczone na PLN · top {accounts.length}</p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-foreground">Salda kont</h3>
+          <p className="text-xs text-muted">Przeliczone na PLN · alfabetycznie</p>
+        </div>
+        <Link href="/accounts" className="text-xs font-medium text-accent hover:underline">
+          Wszystkie →
+        </Link>
       </div>
       <ul className="space-y-3">
         {accounts.map((a) => {

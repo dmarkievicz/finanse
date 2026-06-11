@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from "lucide-react";
 import type { TransactionListItem } from "@/lib/queries/transactions";
+import {
+  buildTransactionsPageUrl,
+  type TransactionFilterState,
+} from "@/components/transactions/transactions-filters";
 import { formatDate, formatPlnSigned } from "@/lib/format";
 
 interface TransactionsTableProps {
@@ -8,8 +12,7 @@ interface TransactionsTableProps {
   total: number;
   page: number;
   pageSize: number;
-  currentType: string;
-  reviewOnly: boolean;
+  filterState: TransactionFilterState;
 }
 
 const typeConfig = {
@@ -20,22 +23,12 @@ const typeConfig = {
   adjustment: { icon: ArrowLeftRight, color: "text-slate-600 bg-slate-50", label: "Korekta" },
 };
 
-function buildPageUrl(page: number, type: string, reviewOnly: boolean) {
-  const params = new URLSearchParams();
-  if (page > 1) params.set("page", String(page));
-  if (type !== "all") params.set("type", type);
-  if (reviewOnly) params.set("review", "1");
-  const qs = params.toString();
-  return `/transactions${qs ? `?${qs}` : ""}`;
-}
-
 export function TransactionsTable({
   items,
   total,
   page,
   pageSize,
-  currentType,
-  reviewOnly,
+  filterState,
 }: TransactionsTableProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -75,7 +68,11 @@ export function TransactionsTable({
                     key={t.id}
                     className={`border-b border-border/60 last:border-0 ${isReview ? "bg-red-50/60" : "hover:bg-slate-50/50"}`}
                   >
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDate(t.date)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted">
+                      <Link href={`/transactions/${t.id}`} className="hover:text-primary hover:underline">
+                        {formatDate(t.date)}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${cfg.color}`}
@@ -125,7 +122,7 @@ export function TransactionsTable({
         <div className="flex gap-2">
           {page > 1 && (
             <Link
-              href={buildPageUrl(page - 1, currentType, reviewOnly)}
+              href={buildTransactionsPageUrl(filterState, page - 1)}
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
             >
               ← Poprzednia
@@ -133,7 +130,7 @@ export function TransactionsTable({
           )}
           {page < totalPages && (
             <Link
-              href={buildPageUrl(page + 1, currentType, reviewOnly)}
+              href={buildTransactionsPageUrl(filterState, page + 1)}
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
             >
               Następna →

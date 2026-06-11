@@ -1,9 +1,11 @@
+import Link from "next/link";
 import type { CategorySlice } from "@/lib/queries/dashboard";
 import { formatPln } from "@/lib/format";
 
 interface CategoryDonutProps {
   categories: CategorySlice[];
   total: number;
+  month: string;
 }
 
 function buildConic(categories: CategorySlice[]) {
@@ -17,7 +19,12 @@ function buildConic(categories: CategorySlice[]) {
     .join(", ");
 }
 
-export function CategoryDonut({ categories, total }: CategoryDonutProps) {
+function categoryHref(categoryId: string | null, month: string) {
+  if (!categoryId) return `/transactions?type=expense&month=${month}`;
+  return `/transactions?type=expense&month=${month}&category=${categoryId}`;
+}
+
+export function CategoryDonut({ categories, total, month }: CategoryDonutProps) {
   if (categories.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
@@ -32,9 +39,17 @@ export function CategoryDonut({ categories, total }: CategoryDonutProps) {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="mb-4">
-        <h3 className="font-semibold text-foreground">Wydatki wg kategorii</h3>
-        <p className="text-xs text-muted">Bieżący miesiąc</p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-foreground">Wydatki wg kategorii</h3>
+          <p className="text-xs text-muted">Bieżący miesiąc · kliknij kategorię</p>
+        </div>
+        <Link
+          href={`/transactions?type=expense&month=${month}`}
+          className="text-xs font-medium text-accent hover:underline"
+        >
+          Wszystkie →
+        </Link>
       </div>
       <div className="flex items-center gap-6">
         <div
@@ -50,12 +65,17 @@ export function CategoryDonut({ categories, total }: CategoryDonutProps) {
         </div>
         <ul className="flex-1 space-y-2">
           {categories.map((c) => (
-            <li key={c.name} className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
-                <span className="text-foreground">{c.name}</span>
-              </span>
-              <span className="font-medium text-muted">{c.pct}%</span>
+            <li key={c.name}>
+              <Link
+                href={categoryHref(c.categoryId, month)}
+                className="flex items-center justify-between rounded-md px-1 py-0.5 text-sm transition hover:bg-slate-50"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                  <span className="text-foreground">{c.name}</span>
+                </span>
+                <span className="font-medium text-muted">{c.pct}%</span>
+              </Link>
             </li>
           ))}
         </ul>

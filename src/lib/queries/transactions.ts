@@ -1,6 +1,7 @@
 import type { TransactionStatus, TransactionType } from "@/types/database";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { rpcNeedsReviewCount } from "@/lib/supabase/rpc";
+import { monthRange } from "@/lib/format";
 
 export interface TransactionListItem {
   id: string;
@@ -22,7 +23,7 @@ export interface TransactionsPageData {
   needsReviewCount: number;
 }
 
-const PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 50;
 
 function formatAccountLabel(
   type: string,
@@ -54,11 +55,22 @@ export async function fetchTransactions(
     page?: number;
     type?: TransactionType | "all";
     reviewOnly?: boolean;
+    accountId?: string;
+    categoryId?: string;
+    month?: string;
+    pageSize?: number;
+    search?: string;
+    status?: string;
   } = {}
 ): Promise<TransactionsPageData> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = Math.max(1, options.page ?? 1);
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const entriesSelect = options.accountId
+    ? "transaction_entries!inner (amount_pln, account_id, accounts (name))"
+    : "transaction_entries (amount_pln, accounts (name))";
 
   let query = supabase
     .from("transactions")
@@ -66,7 +78,7 @@ export async function fetchTransactions(
       `id, date, type, status, details,
        categories (name),
        subcategories (name),
-       transaction_entries (amount_pln, accounts (name))`,
+       ${entriesSelect}`,
       { count: "exact" }
     )
     .is("deleted_at", null)
@@ -74,12 +86,33 @@ export async function fetchTransactions(
     .order("created_at", { ascending: false })
     .range(from, to);
 
+  if (options.accountId) {
+    query = query.eq("transaction_entries.account_id", options.accountId);
+  }
+
   if (options.type && options.type !== "all") {
     query = query.eq("type", options.type);
   }
 
   if (options.reviewOnly) {
     query = query.eq("status", "needs_review");
+  } else if (options.status && options.status !== "all") {
+    query = query.eq("status", options.status);
+  }
+
+  if (options.categoryId) {
+    query = query.eq("category_id", options.categoryId);
+  }
+
+  const range = options.month ? monthRange(options.month) : null;
+  if (range) {
+    query = query.gte("date", range.from).lte("date", range.to);
+  }
+
+  if (options.search?.trim()) {
+    query = query.or(
+      `details.ilike.%${options.search.trim()}%,description.ilike.%${options.search.trim()}%`
+    );
   }
 
   const [listRes, needsReviewCount] = await Promise.all([query, rpcNeedsReviewCount(supabase)]);
@@ -120,7 +153,20 @@ export async function fetchTransactions(
     items,
     total: listRes.count ?? 0,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize,
     needsReviewCount,
   };
+}
+
+export async function fetchCategoryName(
+  supabase: ServerSupabaseClient,
+  categoryId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { name: string } | null)?.name ?? null;
 }

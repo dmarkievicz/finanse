@@ -1,0 +1,1099 @@
+DOKUMENT DLA INFORMATYKA
+AUDYT I ZALECENIA ROZWOJOWE DLA APLIKACJI DO ZARZĄDZANIA FINANSAMI OSOBISTYMI
+
+Data dokumentu: 11 czerwca 2026 r.
+Projekt: Prywatna aplikacja webowa do zarządzania finansami osobistymi i majątkiem
+Technologie: Next.js, TypeScript, Supabase, PostgreSQL, GitHub, Vercel
+Cel dokumentu: przekazanie informatyczne/techniczne zakresu prac, problemów do poprawy i rekomendacji rozwoju aplikacji
+
+
+=====================================================================
+1. CEL APLIKACJI
+=====================================================================
+
+Celem projektu jest stworzenie rozbudowanej aplikacji webowej do zarządzania finansami osobistymi, majątkiem i inwestycjami.
+
+Aplikacja ma docelowo zastąpić obecny arkusz Excel, w którym znajduje się ponad 22 000 wierszy danych finansowych. Dane obejmują między innymi:
+
+- przychody,
+- wydatki,
+- transfery między kontami,
+- przewalutowania,
+- salda kont,
+- inwestycje,
+- lokaty,
+- obligacje,
+- złoto,
+- ETF-y,
+- inne składniki majątku.
+
+Obecne dane mają strukturę zbliżoną do:
+
+Date | Type | Category | Subcategory | Amount | Currency of Amount | Source Account | Target Account | Exchange Rate | Amount (Base Currency) | Details
+
+Wszystkie podsumowania finansowe mają być prezentowane w PLN, natomiast transakcje mogą być prowadzone w różnych walutach: PLN, EUR i USD. Dla każdej transakcji walutowej powinien być zapisany kurs użyty przy przeliczeniu na PLN, aby historyczne raporty nie zmieniały się po czasie.
+
+Aplikacja ma być prywatnym centrum zarządzania finansami, a nie jedynie kopią Excela w przeglądarce.
+
+
+=====================================================================
+2. AKTUALNY STAN PROJEKTU
+=====================================================================
+
+Na podstawie audytu przesłanego projektu aplikacja posiada sensowny fundament techniczny i produktowy.
+
+Widoczne są następujące elementy:
+
+- aplikacja oparta o Next.js i TypeScript,
+- integracja z Supabase,
+- wykorzystanie PostgreSQL,
+- wykorzystanie mechanizmów RLS w Supabase,
+- osobny moduł importu danych,
+- podział na transakcje i wpisy księgowe,
+- dashboard,
+- konta,
+- importy,
+- inwestycje,
+- ustawienia,
+- cele finansowe,
+- dokumentacja techniczna projektu.
+
+Bardzo dobrą decyzją architektoniczną jest rozdzielenie transakcji na:
+
+1. transactions - główny nagłówek transakcji,
+2. transaction_entries - szczegółowe ruchy na kontach.
+
+Taki model pozwala prawidłowo obsługiwać:
+
+- zwykłe wydatki,
+- przychody,
+- transfery między kontami,
+- przewalutowania,
+- korekty sald,
+- transakcje wieloelementowe,
+- operacje inwestycyjne.
+
+To podejście jest znacznie lepsze niż prosta tabela typu: data, kategoria, kwota.
+
+
+=====================================================================
+3. OGÓLNA OCENA
+=====================================================================
+
+Obecny projekt należy ocenić pozytywnie jako fundament aplikacji.
+
+Ocena techniczna fundamentu: 7/10
+Ocena gotowości jako produkcyjny system finansowy: 5/10
+
+Największe zalety:
+
+- dobry kierunek technologiczny,
+- dobry model transakcyjny,
+- obecność Supabase i RLS,
+- istniejący importer danych,
+- rozdzielenie modułów,
+- wstępna dokumentacja,
+- możliwość dalszej rozbudowy.
+
+Największe ryzyka:
+
+- możliwe błędy w liczeniu sald,
+- brak pełnej transakcyjności importu,
+- ryzyko związane z użyciem service_role w endpointach aplikacji,
+- podatna/problemowa biblioteka xlsx,
+- brak pełnego audytu zmian,
+- zbyt uproszczony moduł inwestycji,
+- brak pełnych narzędzi do korekty i edycji danych,
+- brak pełnego eksportu danych.
+
+
+=====================================================================
+4. PRIORYTETOWE PROBLEMY DO POPRAWY
+=====================================================================
+
+---------------------------------------------------------------------
+4.1. Poprawność liczenia sald kont
+---------------------------------------------------------------------
+
+To najważniejszy obszar do weryfikacji.
+
+Funkcja licząca salda kont powinna uwzględniać wyłącznie poprawne transakcje użytkownika, które:
+
+- nie zostały usunięte,
+- mieszczą się w zadanym zakresie dat,
+- należą do danego użytkownika,
+- mają prawidłowe powiązania z transaction_entries,
+- mają prawidłowe powiązania z kontami.
+
+Należy zweryfikować funkcję typu get_account_balances lub jej odpowiednik.
+
+Ryzyko:
+Jeżeli funkcja sald jest błędna, błędne będą również:
+
+- dashboard,
+- majątek netto,
+- saldo kont,
+- cele finansowe,
+- analiza inwestycji,
+- miesięczne raporty.
+
+Rekomendacja:
+Należy napisać testy kontrolne dla sald. Dla kilku przykładowych kont trzeba ręcznie policzyć saldo na podstawie transakcji i porównać wynik z aplikacją.
+
+Priorytet: KRYTYCZNY
+
+
+---------------------------------------------------------------------
+4.2. Import danych musi być transakcyjny
+---------------------------------------------------------------------
+
+Aktualny importer powinien zostać przebudowany tak, aby operacje zapisu do bazy wykonywały się atomowo.
+
+Oznacza to, że import jednego batcha powinien działać według zasady:
+
+- albo zapisują się wszystkie elementy,
+- albo nie zapisuje się nic.
+
+Nie może dochodzić do sytuacji, w której zapisze się transaction, ale nie zapiszą się transaction_entries, albo import_rows nie zostaną poprawnie oznaczone.
+
+Rekomendacja:
+Stworzyć funkcję PostgreSQL/RPC, np.:
+
+import_transaction_batch(...)
+
+Funkcja powinna wewnątrz bazy wykonać:
+
+- zapis import_rows,
+- zapis transactions,
+- zapis transaction_entries,
+- aktualizację statusów,
+- zapis logów,
+- zatwierdzenie transakcji.
+
+W przypadku błędu całość powinna zostać wycofana.
+
+Priorytet: KRYTYCZNY
+
+
+---------------------------------------------------------------------
+4.3. Ograniczenie ryzyka związanego z biblioteką xlsx
+---------------------------------------------------------------------
+
+Biblioteka xlsx jest często używana do odczytu plików Excel, ale bywa problematyczna z punktu widzenia bezpieczeństwa.
+
+Rekomendacje:
+
+- nie wystawiać publicznie endpointu importującego XLSX bez dodatkowych zabezpieczeń,
+- ograniczyć rozmiar pliku,
+- walidować typ pliku,
+- rozważyć import wyłącznie CSV,
+- rozważyć bezpieczniejszy parser,
+- ewentualnie uruchamiać import wyłącznie lokalnie lub w odizolowanym procesie,
+- dodać kontrolę liczby wierszy,
+- dodać kontrolę poprawności nagłówków.
+
+Priorytet: WYSOKI
+
+
+---------------------------------------------------------------------
+4.4. Ostrożnie z SUPABASE_SERVICE_ROLE_KEY
+---------------------------------------------------------------------
+
+Jeżeli endpointy aplikacji używają SUPABASE_SERVICE_ROLE_KEY, należy zachować szczególną ostrożność.
+
+Service role omija RLS, więc nie powinien być używany w zwykłych operacjach dostępnych z aplikacji webowej, chyba że endpoint jest bardzo dobrze zabezpieczony.
+
+Rekomendacje:
+
+- nie używać service_role po stronie klienta,
+- nie dopuszczać do wycieku klucza,
+- używać service_role wyłącznie po stronie serwera,
+- dodać dodatkową autoryzację użytkownika,
+- dla operacji destrukcyjnych dodać potwierdzenie,
+- dodać audit_log,
+- rozważyć przeniesienie krytycznych operacji do Supabase Edge Functions lub RPC,
+- endpoint czyszczący dane zabezpieczyć szczególnie mocno.
+
+Priorytet: WYSOKI
+
+
+---------------------------------------------------------------------
+4.5. Pełny audit log
+---------------------------------------------------------------------
+
+Aplikacja finansowa powinna posiadać historię zmian.
+
+Należy logować minimum:
+
+- dodanie transakcji,
+- edycję transakcji,
+- usunięcie transakcji,
+- zmianę kategorii,
+- zmianę konta,
+- zmianę kursu waluty,
+- import danych,
+- czyszczenie danych,
+- korektę salda,
+- zmianę celu finansowego,
+- zmianę ustawień.
+
+Każdy wpis audit_log powinien zawierać:
+
+- użytkownika,
+- datę i godzinę,
+- typ operacji,
+- tabelę,
+- identyfikator rekordu,
+- poprzednią wartość,
+- nową wartość,
+- źródło operacji,
+- ewentualnie adres IP/user agent, jeśli jest dostępny.
+
+Priorytet: WYSOKI
+
+
+=====================================================================
+5. REKOMENDOWANY MODEL FINANSOWY
+=====================================================================
+
+Aplikacja powinna być projektowana jak uproszczony system księgowy, a nie jak zwykła lista wydatków.
+
+Podstawowe encje:
+
+1. users / profiles
+   Dane użytkownika, ustawienia, domyślna waluta, rola.
+
+2. accounts
+   Konta finansowe:
+   - rachunki bankowe,
+   - gotówka,
+   - konta walutowe,
+   - konta maklerskie,
+   - lokaty,
+   - obligacje,
+   - złoto,
+   - kredyty,
+   - nieruchomości,
+   - inne aktywa.
+
+3. transactions
+   Główne transakcje:
+   - data,
+   - typ,
+   - opis,
+   - status,
+   - kategoria,
+   - podkategoria,
+   - źródło importu,
+   - użytkownik.
+
+4. transaction_entries
+   Szczegółowe ruchy na kontach:
+   - konto,
+   - kwota,
+   - waluta,
+   - kurs,
+   - kwota w PLN,
+   - strona transakcji,
+   - powiązana transakcja.
+
+5. categories i subcategories
+   Słownik kategorii i podkategorii.
+
+6. exchange_rates
+   Kursy walut, najlepiej z podziałem na:
+   - kursy użytkownika,
+   - kursy systemowe,
+   - źródło kursu,
+   - datę kursu.
+
+7. imports i import_rows
+   Historia importów i surowe dane wejściowe.
+
+8. audit_log
+   Pełna historia zmian.
+
+9. instruments
+   Instrumenty inwestycyjne:
+   - ETF,
+   - złoto,
+   - obligacje,
+   - lokaty,
+   - nieruchomości,
+   - inne.
+
+10. investment_transactions
+    Operacje inwestycyjne:
+   - zakup,
+   - sprzedaż,
+   - dywidenda,
+   - odsetki,
+   - prowizja,
+   - podatek,
+   - korekta.
+
+11. instrument_prices
+    Historia cen instrumentów.
+
+12. portfolio_snapshots
+    Zapis stanu portfela na dany dzień/miesiąc.
+
+
+=====================================================================
+6. IMPORT DANYCH Z EXCELA
+=====================================================================
+
+Import danych powinien zostać zaprojektowany jako proces kilkuetapowy.
+
+---------------------------------------------------------------------
+6.1. Etap 1 - wgranie pliku
+---------------------------------------------------------------------
+
+Po wgraniu pliku aplikacja powinna pokazać:
+
+- nazwę pliku,
+- rozmiar,
+- liczbę wierszy,
+- zakres dat,
+- wykryte waluty,
+- wykryte konta,
+- wykryte kategorie,
+- liczbę potencjalnych błędów,
+- liczbę potencjalnych duplikatów.
+
+---------------------------------------------------------------------
+6.2. Etap 2 - walidacja danych
+---------------------------------------------------------------------
+
+System powinien sprawdzać:
+
+- czy data jest poprawna,
+- czy kwota jest liczbą,
+- czy waluta jest jedną z obsługiwanych,
+- czy kurs jest poprawny,
+- czy amount_base zgadza się z amount * exchange_rate,
+- czy konto źródłowe istnieje,
+- czy konto docelowe istnieje,
+- czy kategoria istnieje,
+- czy subkategoria pasuje do kategorii,
+- czy typ transakcji jest obsługiwany.
+
+---------------------------------------------------------------------
+6.3. Etap 3 - mapowanie i decyzje użytkownika
+---------------------------------------------------------------------
+
+Użytkownik powinien móc:
+
+- zaakceptować nowe konto,
+- scalić nowe konto z istniejącym,
+- zaakceptować nową kategorię,
+- przypisać kategorię ręcznie,
+- oznaczyć transakcję jako do sprawdzenia,
+- pominąć wiersz,
+- wymusić import mimo ostrzeżenia.
+
+---------------------------------------------------------------------
+6.4. Etap 4 - właściwy import
+---------------------------------------------------------------------
+
+Dopiero po walidacji i zatwierdzeniu dane powinny zostać zapisane do tabel produkcyjnych.
+
+Wszystkie operacje powinny być transakcyjne.
+
+---------------------------------------------------------------------
+6.5. Etap 5 - raport po imporcie
+---------------------------------------------------------------------
+
+Po imporcie aplikacja powinna pokazać:
+
+- ile wierszy zaimportowano,
+- ile pominięto,
+- ile oznaczono jako duplikaty,
+- ile wymaga ręcznej korekty,
+- ile utworzono nowych kont,
+- ile utworzono nowych kategorii,
+- łączną wartość importu,
+- link do listy transakcji z tego importu.
+
+
+=====================================================================
+7. TRANSAKCJE I KOREKTA DANYCH
+=====================================================================
+
+Aplikacja powinna posiadać pełny moduł zarządzania transakcjami.
+
+Wymagane funkcje:
+
+1. Lista transakcji
+   - zakres dat,
+   - wyszukiwanie po opisie,
+   - filtr po koncie,
+   - filtr po kategorii,
+   - filtr po walucie,
+   - filtr po kwocie,
+   - filtr po statusie,
+   - filtr po imporcie,
+   - filtr "do sprawdzenia",
+   - filtr "bez kategorii",
+   - filtr "bez konta".
+
+2. Szczegóły transakcji
+   - pełne dane,
+   - oryginalny wiersz importu,
+   - wpisy transaction_entries,
+   - historia zmian,
+   - powiązany import.
+
+3. Dodawanie transakcji ręcznie
+   Typy:
+   - wydatek,
+   - przychód,
+   - transfer,
+   - przewalutowanie,
+   - korekta salda,
+   - operacja inwestycyjna.
+
+4. Edycja transakcji
+   Edytowalne pola:
+   - data,
+   - typ,
+   - konto,
+   - kwota,
+   - waluta,
+   - kurs,
+   - kategoria,
+   - subkategoria,
+   - opis,
+   - status.
+
+5. Usuwanie transakcji
+   Nie należy usuwać fizycznie danych.
+   Rekomendowany mechanizm: soft delete przez pole deleted_at.
+
+6. Ekran "do sprawdzenia"
+   Szczególnie ważny po imporcie.
+   Powinien pozwalać szybko poprawiać błędne lub niepełne pozycje.
+
+
+=====================================================================
+8. DASHBOARD
+=====================================================================
+
+Dashboard powinien być centralnym miejscem aplikacji.
+
+Najważniejsza zasada:
+
+Każda liczba na dashboardzie powinna być klikalna i prowadzić do danych źródłowych.
+
+Przykłady:
+
+- wydatki miesięczne -> lista transakcji z danego miesiąca,
+- spożywcze -> lista transakcji z kategorii spożywcze,
+- saldo konta -> historia konta,
+- inwestycje -> szczegóły portfela,
+- transakcje do sprawdzenia -> ekran korekty.
+
+Rekomendowane sekcje dashboardu:
+
+1. Majątek netto
+   - aktywa,
+   - zobowiązania,
+   - majątek netto,
+   - majątek netto bez nieruchomości,
+   - aktywa płynne,
+   - aktywa inwestycyjne.
+
+2. Cashflow
+   - przychody,
+   - wydatki,
+   - nadwyżka,
+   - średnia z 3 miesięcy,
+   - średnia z 12 miesięcy.
+
+3. Wydatki
+   - kategorie,
+   - podkategorie,
+   - największe transakcje,
+   - porównanie miesiąc do miesiąca,
+   - anomalie.
+
+4. Konta
+   - salda kont,
+   - zmiana miesiąc do miesiąca,
+   - konta walutowe,
+   - konta inwestycyjne.
+
+5. Inwestycje
+   - wartość portfela,
+   - alokacja,
+   - zysk/strata,
+   - waluty,
+   - instrumenty,
+   - udział klas aktywów.
+
+6. Cele
+   - cel finansowy,
+   - postęp,
+   - kwota brakująca,
+   - wymagana miesięczna nadwyżka,
+   - prognozowana data osiągnięcia celu.
+
+
+=====================================================================
+9. KONTA
+=====================================================================
+
+Należy dodać szczegółowy widok pojedynczego konta.
+
+Adres przykładowy:
+
+/accounts/[id]
+
+Widok powinien zawierać:
+
+- nazwę konta,
+- typ konta,
+- walutę,
+- aktualne saldo,
+- saldo w PLN,
+- wykres salda w czasie,
+- transakcje konta,
+- wpływy,
+- wypływy,
+- transfery przychodzące,
+- transfery wychodzące,
+- korekty,
+- eksport historii konta.
+
+Typy kont:
+
+- bankowe,
+- gotówka,
+- karta kredytowa,
+- konto walutowe,
+- konto inwestycyjne,
+- lokata,
+- obligacje,
+- złoto,
+- nieruchomość,
+- kredyt,
+- inne aktywa,
+- inne zobowiązania.
+
+
+=====================================================================
+10. KATEGORIE I BUDŻETY
+=====================================================================
+
+Aplikacja powinna posiadać moduł kategorii oraz budżetów miesięcznych.
+
+---------------------------------------------------------------------
+10.1. Kategorie
+---------------------------------------------------------------------
+
+Widok kategorii powinien pokazywać:
+
+- miesięczne wydatki,
+- trend 12 miesięcy,
+- największe transakcje,
+- podkategorie,
+- średnią miesięczną,
+- porównanie rok do roku.
+
+---------------------------------------------------------------------
+10.2. Budżety
+---------------------------------------------------------------------
+
+Budżety powinny działać miesięcznie.
+
+Przykład:
+
+- Spożywcze: 2 430 / 3 000 zł
+- Restauracje: 820 / 1 000 zł
+- Wakacje: 7 500 / 20 000 zł
+- Samochód: 600 / 1 000 zł
+
+Budżet powinien mieć:
+
+- kategorię,
+- okres,
+- limit,
+- walutę bazową,
+- wykorzystanie,
+- procent wykorzystania,
+- ostrzeżenie po przekroczeniu progu,
+- historię zmian.
+
+Opcjonalnie można dodać budżety roczne, np. wakacje, ubezpieczenia, większe zakupy.
+
+
+=====================================================================
+11. INWESTYCJE
+=====================================================================
+
+Aktualny moduł inwestycji należy rozbudować. Nie powinien on polegać wyłącznie na saldach kont ani nazwach kont.
+
+Potrzebny jest pełny rejestr instrumentów.
+
+---------------------------------------------------------------------
+11.1. ETF-y
+---------------------------------------------------------------------
+
+Dla ETF-ów należy przechowywać:
+
+- nazwę,
+- ticker,
+- ISIN,
+- giełdę,
+- walutę notowania,
+- liczbę jednostek,
+- średnią cenę zakupu,
+- koszt nabycia,
+- aktualną cenę,
+- aktualną wartość,
+- zysk/stratę,
+- prowizje,
+- podatki,
+- konto maklerskie,
+- historię transakcji.
+
+---------------------------------------------------------------------
+11.2. Złoto
+---------------------------------------------------------------------
+
+Dla złota:
+
+- rodzaj,
+- ilość gramów lub uncji,
+- cena zakupu,
+- data zakupu,
+- aktualna cena,
+- aktualna wartość,
+- spread,
+- miejsce przechowywania,
+- uwagi.
+
+---------------------------------------------------------------------
+11.3. Obligacje
+---------------------------------------------------------------------
+
+Dla obligacji:
+
+- seria,
+- typ,
+- data zakupu,
+- data wykupu,
+- wartość nominalna,
+- oprocentowanie,
+- indeksacja,
+- naliczone odsetki,
+- aktualna wartość,
+- podatek Belki,
+- status.
+
+---------------------------------------------------------------------
+11.4. Lokaty
+---------------------------------------------------------------------
+
+Dla lokat:
+
+- bank,
+- kwota,
+- oprocentowanie,
+- data rozpoczęcia,
+- data zakończenia,
+- odsetki brutto,
+- odsetki netto,
+- status,
+- automatyczne odnowienie tak/nie.
+
+---------------------------------------------------------------------
+11.5. Kredyty i zobowiązania
+---------------------------------------------------------------------
+
+Dla kredytu:
+
+- aktualne saldo zadłużenia,
+- oprocentowanie,
+- rata,
+- data końca,
+- nadpłaty,
+- koszt odsetek,
+- harmonogram,
+- wpływ na majątek netto.
+
+
+=====================================================================
+12. KURSY WALUT I WYCENY
+=====================================================================
+
+Aplikacja powinna zapisywać historyczne kursy walut i wyceny aktywów.
+
+Ważna zasada:
+
+Historyczna transakcja walutowa musi mieć zapisany kurs z dnia transakcji albo kurs ręcznie przypisany przy imporcie. Nie wolno dynamicznie przeliczać starych transakcji aktualnym kursem.
+
+Rekomendowane funkcje:
+
+- automatyczne pobieranie kursów NBP,
+- ręczne dodawanie kursu,
+- zapis źródła kursu,
+- kursy EUR/PLN,
+- kursy USD/PLN,
+- historia ceny złota,
+- historia cen ETF,
+- wyceny ręczne dla aktywów niepublicznych,
+- snapshot portfela na koniec miesiąca.
+
+
+=====================================================================
+13. CELE FINANSOWE I PROGNOZY
+=====================================================================
+
+Aplikacja powinna wspierać cele finansowe.
+
+Przykładowy cel:
+
+Osiągnięcie 1 000 000 zł aktywów płynnych netto do czerwca 2029 r.
+
+Moduł celów powinien zawierać:
+
+- nazwę celu,
+- kwotę docelową,
+- datę docelową,
+- aktualny stan,
+- brakującą kwotę,
+- procent realizacji,
+- wymaganą miesięczną nadwyżkę,
+- prognozowaną datę osiągnięcia celu,
+- scenariusze stopy zwrotu: 0%, 3%, 5%, 7%,
+- wykres postępu.
+
+Dodatkowe cele:
+
+- poduszka finansowa,
+- wcześniejsza emerytura,
+- budżet wakacyjny,
+- spłata kredytu,
+- wartość portfela inwestycyjnego.
+
+
+=====================================================================
+14. EKSPORT I BACKUP
+=====================================================================
+
+Aplikacja musi umożliwiać pełny eksport danych.
+
+To jest bardzo ważne, aby użytkownik nie był uzależniony od aplikacji.
+
+Wymagane eksporty:
+
+- wszystkie transakcje do CSV,
+- wszystkie transakcje do XLSX,
+- konta,
+- kategorie,
+- inwestycje,
+- import_rows,
+- audit_log,
+- pełen backup JSON,
+- ZIP ze wszystkimi danymi.
+
+Dodatkowo:
+
+- automatyczny backup bazy,
+- możliwość ręcznego backupu,
+- zapis daty ostatniego backupu,
+- instrukcja odtworzenia danych.
+
+Przed każdą operacją destrukcyjną, np. czyszczeniem danych, aplikacja powinna wymuszać backup.
+
+
+=====================================================================
+15. BEZPIECZEŃSTWO
+=====================================================================
+
+Zalecane zabezpieczenia:
+
+1. Supabase Auth
+   - logowanie użytkownika,
+   - opcjonalnie MFA.
+
+2. RLS na każdej tabeli
+   Każda tabela z danymi użytkownika powinna mieć aktywne RLS.
+
+3. Brak service_role po stronie klienta
+   Klucz service_role nie może nigdy trafić do przeglądarki.
+
+4. Zabezpieczenie endpointów POST
+   - sprawdzenie użytkownika,
+   - sprawdzenie Origin,
+   - ewentualny CSRF token,
+   - rate limiting,
+   - audit_log.
+
+5. Operacje destrukcyjne
+   - podwójne potwierdzenie,
+   - backup przed operacją,
+   - zapis w audit_log.
+
+6. Storage
+   Jeśli będą załączniki, należy zabezpieczyć je przez RLS/polityki dostępu.
+
+7. Środowiska
+   - osobne środowisko development,
+   - osobne preview,
+   - osobna produkcja.
+
+8. Zmienne środowiskowe
+   - nie commitować kluczy do repozytorium,
+   - kontrolować zmienne w Vercel,
+   - nie ujawniać SUPABASE_SERVICE_ROLE_KEY.
+
+9. Logi
+   Nie logować pełnych danych finansowych w publicznych logach aplikacji.
+
+
+=====================================================================
+16. TESTY
+=====================================================================
+
+Aplikacja finansowa wymaga testów logicznych.
+
+Najważniejsze testy:
+
+1. Test salda konta
+   - kilka transakcji,
+   - wydatek,
+   - przychód,
+   - transfer,
+   - przewalutowanie,
+   - sprawdzenie salda.
+
+2. Test importu
+   - poprawny plik,
+   - plik z błędami,
+   - duplikaty,
+   - brak konta,
+   - brak kategorii,
+   - niepoprawny kurs.
+
+3. Test transferu
+   - transfer nie może zwiększać wydatków,
+   - transfer nie może zwiększać przychodów,
+   - majątek netto po transferze bez prowizji powinien zostać taki sam.
+
+4. Test przewalutowania
+   - PLN -> EUR,
+   - EUR -> PLN,
+   - prowizja,
+   - poprawna kwota bazowa PLN.
+
+5. Test dashboardu
+   - suma kategorii = suma transakcji,
+   - suma kont = majątek brutto,
+   - zobowiązania zmniejszają majątek netto.
+
+6. Test RLS
+   - użytkownik nie może zobaczyć cudzych danych,
+   - użytkownik nie może edytować cudzych danych,
+   - service_role nie jest używany niepotrzebnie.
+
+
+=====================================================================
+17. UX I WYGODA UŻYTKOWNIKA
+=====================================================================
+
+Rekomendowane usprawnienia UX:
+
+1. Globalna wyszukiwarka
+   Szukanie po transakcjach, kontach, kategoriach, opisach.
+
+2. Klikalne liczby na dashboardzie
+   Każde podsumowanie prowadzi do danych źródłowych.
+
+3. Szybka korekta transakcji
+   Szczególnie dla transakcji po imporcie.
+
+4. Widoki zapisane
+   Np. "wydatki z tego miesiąca", "transakcje bez kategorii", "duże wydatki".
+
+5. Oznaczenia kolorami
+   - przychody,
+   - wydatki,
+   - transfery,
+   - inwestycje,
+   - błędy.
+
+6. Notatki i tagi
+   Możliwość dodania własnych tagów, np. wakacje 2026, remont, samochód.
+
+7. Załączniki
+   Możliwość dodawania faktur, potwierdzeń, umów lokat, potwierdzeń zakupu złota.
+
+8. Widok mobilny
+   Aplikacja powinna dobrze działać na telefonie.
+
+9. PWA
+   Możliwość przypięcia aplikacji do ekranu telefonu.
+
+10. Tryb ciemny
+    Przydatny, ale niższy priorytet niż poprawność danych.
+
+
+=====================================================================
+18. KOLEJNOŚĆ PRAC
+=====================================================================
+
+---------------------------------------------------------------------
+ETAP 1 - STABILIZACJA FUNDAMENTU
+---------------------------------------------------------------------
+
+1. Zweryfikować i poprawić funkcję liczenia sald.
+2. Dodać testy sald.
+3. Przebudować import na transakcyjny.
+4. Zabezpieczyć endpointy importu.
+5. Ograniczyć/zmienić wykorzystanie biblioteki xlsx.
+6. Poprawić RLS i spójność user_id.
+7. Dodać pełny audit_log.
+8. Dodać ekran transakcji do sprawdzenia.
+9. Dodać eksport danych.
+
+---------------------------------------------------------------------
+ETAP 2 - FUNKCJE OPERACYJNE
+---------------------------------------------------------------------
+
+1. Ręczne dodawanie transakcji.
+2. Edycja transakcji.
+3. Soft delete transakcji.
+4. Widok pojedynczego konta.
+5. Widok pojedynczej kategorii.
+6. Lepsze filtry transakcji.
+7. Reguły automatycznej kategoryzacji.
+8. Budżety miesięczne.
+
+---------------------------------------------------------------------
+ETAP 3 - INWESTYCJE
+---------------------------------------------------------------------
+
+1. Pełny rejestr instrumentów.
+2. Transakcje inwestycyjne.
+3. Wyceny instrumentów.
+4. ETF-y.
+5. Złoto.
+6. Obligacje.
+7. Lokaty.
+8. Kredyt.
+9. Snapshoty portfela.
+10. Alokacja aktywów.
+
+---------------------------------------------------------------------
+ETAP 4 - ANALITYKA I PROGNOZY
+---------------------------------------------------------------------
+
+1. Majątek netto w czasie.
+2. Cel emerytalny.
+3. Scenariusze wzrostu.
+4. Prognoza osiągnięcia celu.
+5. Porównanie rok do roku.
+6. Anomalie w wydatkach.
+7. Raporty PDF/XLSX.
+8. Alerty.
+
+---------------------------------------------------------------------
+ETAP 5 - AUTOMATYZACJE
+---------------------------------------------------------------------
+
+1. Automatyczne kursy NBP.
+2. Automatyczne ceny złota.
+3. Automatyczne ceny ETF.
+4. Powtarzalne transakcje.
+5. Subskrypcje.
+6. Alerty budżetowe.
+7. Przypomnienia o lokatach i obligacjach.
+
+
+=====================================================================
+19. DEFINICJA DOBRZE DZIAŁAJĄCEJ APLIKACJI
+=====================================================================
+
+Aplikacja będzie gotowa do realnego używania, jeżeli spełni następujące warunki:
+
+1. Salda kont zgadzają się z danymi źródłowymi.
+2. Transfery nie są liczone jako wydatki ani przychody.
+3. Transakcje walutowe mają zachowany historyczny kurs.
+4. Import nie tworzy częściowo zapisanych danych.
+5. Każdą transakcję można poprawić.
+6. Każda zmiana jest zapisana w audit_log.
+7. Dane można w pełni wyeksportować.
+8. Dashboard pokazuje dane możliwe do zweryfikowania.
+9. Moduł inwestycji pokazuje faktyczne pozycje, a nie tylko salda kont.
+10. System jest zabezpieczony przez RLS i nie ujawnia danych osobom nieuprawnionym.
+
+
+=====================================================================
+20. NAJWAŻNIEJSZY WNIOSEK DLA INFORMATYKA
+=====================================================================
+
+Nie należy w pierwszej kolejności rozwijać wyglądu aplikacji ani dodawać kolejnych wykresów.
+
+Najpierw trzeba zapewnić:
+
+1. poprawność danych,
+2. poprawność sald,
+3. bezpieczny import,
+4. możliwość korekty danych,
+5. historię zmian,
+6. eksport danych.
+
+Dopiero potem warto rozbudowywać dashboard, inwestycje, prognozy i automatyzacje.
+
+Najważniejsza zasada:
+
+Każda liczba pokazana w aplikacji musi dać się wyjaśnić przez konkretne transakcje źródłowe.
+
+Jeżeli dashboard pokazuje "wydatki miesięczne: 12 450 zł", użytkownik musi móc kliknąć tę liczbę i zobaczyć dokładną listę transakcji, które składają się na tę kwotę.
+
+Jeżeli aplikacja pokazuje "majątek netto: 850 000 zł", użytkownik musi móc zobaczyć, z jakich kont, inwestycji, aktywów i zobowiązań ta wartość wynika.
+
+To jest kluczowa różnica między ładnym dashboardem a wiarygodnym systemem finansowym.
+
+
+=====================================================================
+21. SKRÓCONA LISTA ZADAŃ TECHNICZNYCH
+=====================================================================
+
+KRYTYCZNE:
+
+[ ] Zweryfikować funkcję liczenia sald kont.
+[ ] Dodać testy sald i cashflow.
+[ ] Przebudować import na transakcyjny.
+[ ] Zabezpieczyć endpointy POST.
+[ ] Ograniczyć użycie SUPABASE_SERVICE_ROLE_KEY.
+[ ] Zabezpieczyć lub zastąpić bibliotekę xlsx.
+[ ] Dodać pełny audit_log.
+[ ] Dodać ekran korekty transakcji needs_review.
+
+WYSOKI PRIORYTET:
+
+[ ] Dodać ręczne dodawanie transakcji.
+[ ] Dodać edycję transakcji.
+[ ] Dodać soft delete.
+[ ] Dodać eksport wszystkich danych.
+[ ] Dodać widok pojedynczego konta.
+[ ] Dodać lepsze filtry transakcji.
+[ ] Dodać reguły automatycznej kategoryzacji.
+[ ] Dodać budżety miesięczne.
+
+ŚREDNI PRIORYTET:
+
+[ ] Rozbudować moduł inwestycji.
+[ ] Dodać rejestr instrumentów.
+[ ] Dodać wyceny ETF, złota, obligacji i lokat.
+[ ] Dodać snapshoty majątku.
+[ ] Dodać prognozy celu finansowego.
+[ ] Dodać automatyczne kursy walut.
+[ ] Dodać raporty PDF/XLSX.
+[ ] Dodać PWA i dopracowany widok mobilny.
+
+
+KONIEC DOKUMENTU

@@ -7,7 +7,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import XLSX from "xlsx";
+import { readExcelRows } from "./lib/excel-rows.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -47,9 +47,11 @@ function parseNumber(val) {
 
 function excelDateToISO(val) {
   if (!val) return null;
+  if (val instanceof Date) return val.toISOString().slice(0, 10);
   if (typeof val === "number") {
-    const d = XLSX.SSF.parse_date_code(val);
-    return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    const d = new Date(epoch.getTime() + val * 86400000);
+    return d.toISOString().slice(0, 10);
   }
   const s = String(val).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -111,7 +113,7 @@ function countMapInc(map, key) {
   map.set(k, (map.get(k) || 0) + 1);
 }
 
-function main() {
+async function main() {
   const filePath = findExcelFile(process.argv[2]);
 
   if (!filePath || !existsSync(filePath)) {
@@ -121,11 +123,9 @@ function main() {
 
   console.log(`📂 Audyt pliku: ${filePath}\n`);
 
-  const wb = XLSX.readFile(filePath);
-  const sheetName = wb.SheetNames[0];
-  const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
+  const rawRows = await readExcelRows(filePath);
 
-  console.log(`📋 Arkusz: ${sheetName}`);
+  console.log(`📋 Arkusz: pierwszy`);
   console.log(`📊 Wierszy danych: ${rawRows.length}`);
   if (rawRows.length > 0) {
     console.log(`📋 Kolumny: ${Object.keys(rawRows[0]).join(" | ")}\n`);
@@ -259,7 +259,7 @@ function main() {
   const report = {
     generatedAt: new Date().toISOString(),
     sourceFile: filePath,
-    sheetName,
+    sheetName: "first",
     rowCount: rows.length,
     rawColumns: rawRows.length > 0 ? Object.keys(rawRows[0]) : [],
     dateRange: { from: minDate, to: maxDate },
@@ -295,4 +295,7 @@ function main() {
   console.log("\n📝 Następny krok: przejrzyj docs/source-data-audit.md (uzupełniony automatycznie).");
 }
 
-main();
+main().catch((err) => {
+  console.error("❌", err.message);
+  process.exit(1);
+});

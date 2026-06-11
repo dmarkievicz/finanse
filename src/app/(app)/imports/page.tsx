@@ -1,15 +1,34 @@
 import { PageHeader } from "@/components/page-header";
+import { ImportStats } from "@/components/imports/import-stats";
+import { ImportUpload } from "@/components/imports/import-upload";
+import { ClearDataPanel } from "@/components/imports/clear-data-panel";
+import { ImportHistory } from "@/components/imports/import-history";
+import { createClient } from "@/lib/supabase/server";
+import { fetchImportsPage } from "@/lib/queries/imports";
 
-export default function ImportsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ImportsPage() {
+  const supabase = await createClient();
+  const data = await fetchImportsPage(supabase);
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Import"
-        description="Import z Excela/CSV — 22 442 wiersze — Faza 3."
+        description="Wyczyść dane, zaimportuj ponownie z Excela, przeglądaj historię"
       />
-      <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted">
-        Moduł importu w przygotowaniu.
+      <ImportStats
+        transactions={data.stats.transactions}
+        accounts={data.stats.accounts}
+        categories={data.stats.categories}
+        importRows={data.stats.importRows}
+      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ImportUpload />
+        <ClearDataPanel />
       </div>
+      <ImportHistory imports={data.imports} />
     </div>
   );
 }

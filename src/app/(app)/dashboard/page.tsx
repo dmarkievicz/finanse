@@ -18,6 +18,8 @@ import { CurrencyExposure } from "@/components/dashboard/currency-exposure";
 import { createClient } from "@/lib/supabase/server";
 import { greetingPl, formatMonthYear, formatPln, formatPercent } from "@/lib/format";
 import { fetchDashboardData, calcTrendPercent } from "@/lib/queries/dashboard";
+import { fetchLookupData } from "@/lib/queries/transaction-detail";
+import { QuickTransactionForm } from "@/components/transactions/quick-transaction-form";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -29,7 +31,13 @@ export default async function DashboardPage() {
   const hour = now.getHours();
   const name = user?.email?.split("@")[0] ?? "Damian";
 
-  const data = await fetchDashboardData(supabase, now);
+  const [data, lookup] = await Promise.all([
+    fetchDashboardData(supabase, now),
+    fetchLookupData(supabase),
+  ]);
+  const activeAccounts = lookup.accounts
+    .filter((a) => a.lifecycle_status === "active")
+    .map((a) => ({ id: a.id, name: a.name }));
   const { currentCashflow, previousCashflow } = data;
 
   const savingsRate =
@@ -80,12 +88,17 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      <GoalProgress
-        name={data.goal!.name}
-        current={data.goal!.current}
-        target={data.goal!.target}
-        targetDate={data.goal!.targetDate}
-      />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <GoalProgress
+            name={data.goal.name}
+            current={data.goal.current}
+            target={data.goal.target}
+            targetDate={data.goal.targetDate}
+          />
+        </div>
+        <QuickTransactionForm accounts={activeAccounts} categories={lookup.categories} />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -94,6 +107,7 @@ export default async function DashboardPage() {
           sub="suma sald wszystkich kont"
           icon={Wallet}
           accent="default"
+          href="/accounts"
         />
         <KpiCard
           label="Przychody w miesiącu"
@@ -102,6 +116,7 @@ export default async function DashboardPage() {
           icon={TrendingUp}
           trend={incomeTrend ? { value: incomeTrend, positive: currentCashflow.income_pln >= previousCashflow.income_pln } : undefined}
           accent="green"
+          href={`/transactions?type=income&month=${data.currentMonth}`}
         />
         <KpiCard
           label="Wydatki w miesiącu"
@@ -117,6 +132,7 @@ export default async function DashboardPage() {
               : undefined
           }
           accent="red"
+          href={`/transactions?type=expense&month=${data.currentMonth}`}
         />
         <KpiCard
           label="Stopa oszczędności"
@@ -134,7 +150,11 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <CashflowChart data={data.cashflowHistory} />
-        <CategoryDonut categories={data.categoryBreakdown} total={data.categoryTotal} />
+        <CategoryDonut
+          categories={data.categoryBreakdown}
+          total={data.categoryTotal}
+          month={data.currentMonth}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -147,7 +167,10 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <InvestmentsPanel />
+        <InvestmentsPanel
+          totalPln={data.investmentsTotal}
+          allocation={data.investmentsAllocation}
+        />
         <CurrencyExposure currencies={data.currencyExposure} />
       </div>
     </div>

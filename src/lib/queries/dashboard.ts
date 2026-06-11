@@ -7,6 +7,11 @@ import {
   rpcNeedsReviewCount,
   rpcNetWorth,
 } from "@/lib/supabase/rpc";
+import { fetchInvestments } from "@/lib/queries/investments";
+import type { AllocationSlice } from "@/lib/queries/investments";
+import { fetchUserGoal } from "@/lib/queries/goals";
+import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
+import type { BalanceMode } from "@/lib/supabase/rpc";
 
 export interface MonthPoint {
   year: number;
@@ -25,6 +30,7 @@ export interface CategorySlice {
   pct: number;
   total: number;
   color: string;
+  categoryId: string | null;
 }
 
 export interface CurrencySlice {
@@ -55,7 +61,10 @@ export interface DashboardData {
   recentTransactions: RecentTransactionRow[];
   currencyExposure: CurrencySlice[];
   needsReviewCount: number;
-  goal: { name: string; current: number; target: number; targetDate: string | null } | null;
+  goal: { name: string; current: number; target: number; targetDate: string | null };
+  currentMonth: string;
+  investmentsTotal: number;
+  investmentsAllocation: AllocationSlice[];
 }
 
 const CATEGORY_COLORS = [
@@ -111,6 +120,7 @@ function buildCategorySlices(rows: CategoryBreakdown[]): {
     total: Number(r.total_pln),
     pct: Math.round((Number(r.total_pln) / total) * 100),
     color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+    categoryId: r.category_id,
   }));
 
   if (restTotal > 0) {
@@ -119,6 +129,7 @@ function buildCategorySlices(rows: CategoryBreakdown[]): {
       total: restTotal,
       pct: Math.round((restTotal / total) * 100),
       color: CATEGORY_COLORS[6],
+      categoryId: null,
     });
   }
 
@@ -194,6 +205,8 @@ export async function fetchDashboardData(
   const { from, to } = monthBounds(year, month);
   const today = reference.toISOString().slice(0, 10);
   const monthPoints = getLast6Months(reference);
+  const settings = await fetchUserSettings(supabase);
+  const mode: BalanceMode = balanceMode(settings);
 
   const [
     netWorth,
@@ -202,16 +215,17 @@ export async function fetchDashboardData(
     accountBalances,
     categoryRows,
     needsReviewCount,
+    investmentsData,
     recentRes,
-    goalRes,
     ...cashflowMonths
   ] = await Promise.all([
-    rpcNetWorth(supabase, today),
-    rpcMonthlyCashflow(supabase, year, month),
-    rpcMonthlyCashflow(supabase, prevYear, prevMonth),
-    rpcAccountBalances(supabase, today),
-    rpcCategoryBreakdown(supabase, from, to),
+    rpcNetWorth(supabase, today, mode),
+    rpcMonthlyCashflow(supabase, year, month, mode),
+    rpcMonthlyCashflow(supabase, prevYear, prevMonth, mode),
+    rpcAccountBalances(supabase, today, mode),
+    rpcCategoryBreakdown(supabase, from, to, mode),
     rpcNeedsReviewCount(supabase),
+    fetchInvestments(supabase, today),
     supabase
       .from("transactions")
       .select(
@@ -223,8 +237,7 @@ export async function fetchDashboardData(
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(5),
-    supabase.from("goals").select("name, target_amount, current_amount, target_date").eq("is_active", true).limit(1).maybeSingle(),
-    ...monthPoints.map((m) => rpcMonthlyCashflow(supabase, m.year, m.month)),
+    ...monthPoints.map((m) => rpcMonthlyCashflow(supabase, m.year, m.month, mode)),
   ]);
 
   if (recentRes.error) throw recentRes.error;
@@ -264,25 +277,15 @@ export async function fetchDashboardData(
     };
   });
 
-  const goalRow = goalRes.data as {
-    name: string;
-    target_amount: number | null;
-    current_amount: number;
-    target_date: string | null;
-  } | null;
-  const goal = goalRow
-    ? {
-        name: goalRow.name,
-        current: Number(goalRow.current_amount ?? netWorth),
-        target: Number(goalRow.target_amount ?? 1_000_000),
-        targetDate: goalRow.target_date,
-      }
-    : {
-        name: "1 000 000 zł aktywów płynnych",
-        current: netWorth,
-        target: 1_000_000,
-        targetDate: "2029-06-01",
-      };
+  const goalData = await fetchUserGoal(supabase, netWorth);
+  const goal = {
+    name: goalData.name,
+    current: goalData.current,
+    target: goalData.target_amount,
+    targetDate: goalData.target_date,
+  };
+
+  const currentMonth = `${year}-${String(month).padStart(2, "0")}`;
 
   return {
     netWorth,
@@ -293,12 +296,17 @@ export async function fetchDashboardData(
     categoryTotal,
     accountBalances: accountBalances
       .filter((a) => Number(a.balance_pln) !== 0)
-      .sort((a, b) => Number(b.balance_pln) - Number(a.balance_pln))
-      .slice(0, 8),
+      .sort((a, b) =>
+        a.account_name.localeCompare(b.account_name, "pl", { sensitivity: "base" })
+      )
+      .slice(0, 12),
     recentTransactions,
     currencyExposure: buildCurrencySlices(accountBalances),
     needsReviewCount,
     goal,
+    investmentsTotal: investmentsData.totalPln,
+    investmentsAllocation: investmentsData.allocation,
+    currentMonth,
   };
 }
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatPln } from "@/lib/format";
 
 interface GoalProgressProps {
@@ -16,7 +17,10 @@ export function GoalProgress({ name, current, target, targetDate }: GoalProgress
     : null;
 
   return (
-    <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5 p-5">
+    <Link
+      href="/settings#cel"
+      className="block rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5 p-5 transition hover:border-primary/40"
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-primary">Cel</p>
@@ -34,6 +38,7 @@ export function GoalProgress({ name, current, target, targetDate }: GoalProgress
       <p className="mt-2 text-sm text-muted">
         <span className="font-semibold text-foreground">{formatPln(current)}</span> z {formatPln(target)}
       </p>
-    </div>
+      <p className="mt-2 text-xs font-medium text-primary">Edytuj cel w ustawieniach →</p>
+    </Link>
   );
 }
