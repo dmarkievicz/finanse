@@ -1,14 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Plus } from "lucide-react";
+import { TRANSACTION_CURRENCIES } from "@/lib/transactions/currencies";
 
 type QuickType = "expense" | "income";
 
+interface AccountOption {
+  id: string;
+  name: string;
+  default_currency?: string;
+}
+
 interface QuickTransactionFormProps {
-  accounts: { id: string; name: string }[];
+  accounts: AccountOption[];
   categories: { id: string; name: string; type: string }[];
 }
 
@@ -19,6 +26,8 @@ export function QuickTransactionForm({ accounts, categories }: QuickTransactionF
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [categoryId, setCategoryId] = useState("");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState(accounts[0]?.default_currency ?? "PLN");
+  const [exchangeRate, setExchangeRate] = useState("1");
   const [details, setDetails] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,12 +36,21 @@ export function QuickTransactionForm({ accounts, categories }: QuickTransactionF
     (c) => c.type === type || c.type === "both"
   );
 
+  useEffect(() => {
+    const acc = accounts.find((a) => a.id === accountId);
+    if (acc?.default_currency) {
+      setCurrency(acc.default_currency);
+      if (acc.default_currency === "PLN") setExchangeRate("1");
+    }
+  }, [accountId, accounts]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     const parsedAmount = Number(amount.replace(",", "."));
+    const parsedRate = Number(exchangeRate.replace(",", "."));
     if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
       setError("Podaj poprawną kwotę");
       setLoading(false);
@@ -40,6 +58,11 @@ export function QuickTransactionForm({ accounts, categories }: QuickTransactionF
     }
     if (!accountId) {
       setError("Wybierz konto");
+      setLoading(false);
+      return;
+    }
+    if (currency !== "PLN" && (Number.isNaN(parsedRate) || parsedRate <= 0)) {
+      setError("Podaj kurs do PLN");
       setLoading(false);
       return;
     }
@@ -53,6 +76,8 @@ export function QuickTransactionForm({ accounts, categories }: QuickTransactionF
           type,
           account_id: accountId,
           amount: parsedAmount,
+          currency,
+          exchange_rate: currency === "PLN" ? 1 : parsedRate,
           category_id: categoryId || undefined,
           details: details || undefined,
         }),
@@ -146,6 +171,39 @@ export function QuickTransactionForm({ accounts, categories }: QuickTransactionF
               className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
             />
           </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-xs font-medium text-muted">Waluta</label>
+            <select
+              value={currency}
+              onChange={(e) => {
+                setCurrency(e.target.value);
+                if (e.target.value === "PLN") setExchangeRate("1");
+              }}
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+            >
+              {TRANSACTION_CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          {currency !== "PLN" && (
+            <div>
+              <label className="text-xs font-medium text-muted">Kurs → PLN</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={exchangeRate}
+                onChange={(e) => setExchangeRate(e.target.value)}
+                required
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+              />
+            </div>
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">

@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
+import { TRANSACTION_CURRENCIES } from "@/lib/transactions/currencies";
 
-type FormType = "expense" | "income" | "transfer" | "exchange" | "adjustment";
+type FormType = "expense" | "income" | "transfer";
+
+interface AccountOption {
+  id: string;
+  name: string;
+  default_currency: string;
+}
 
 interface TransactionCreateFormProps {
-  accounts: { id: string; name: string; default_currency: string }[];
+  accounts: AccountOption[];
   categories: { id: string; name: string; type: string }[];
 }
 
@@ -15,9 +22,58 @@ const TYPE_LABELS: Record<FormType, string> = {
   expense: "Wydatek",
   income: "Przychód",
   transfer: "Transfer",
-  exchange: "Przewalutowanie",
-  adjustment: "Korekta salda",
 };
+
+function CurrencyRateFields({
+  currency,
+  exchangeRate,
+  onCurrency,
+  onRate,
+  idPrefix,
+}: {
+  currency: string;
+  exchangeRate: string;
+  onCurrency: (v: string) => void;
+  onRate: (v: string) => void;
+  idPrefix: string;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label className="text-xs font-medium" htmlFor={`${idPrefix}-currency`}>
+          Waluta
+        </label>
+        <select
+          id={`${idPrefix}-currency`}
+          value={currency}
+          onChange={(e) => onCurrency(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+        >
+          {TRANSACTION_CURRENCIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="text-xs font-medium" htmlFor={`${idPrefix}-rate`}>
+          Kurs → PLN
+        </label>
+        <input
+          id={`${idPrefix}-rate`}
+          type="text"
+          inputMode="decimal"
+          value={exchangeRate}
+          onChange={(e) => onRate(e.target.value)}
+          disabled={currency === "PLN"}
+          required={currency !== "PLN"}
+          className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm disabled:bg-slate-50"
+        />
+      </div>
+    </div>
+  );
+}
 
 export function TransactionCreateForm({ accounts, categories }: TransactionCreateFormProps) {
   const router = useRouter();
@@ -31,15 +87,66 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
   const [targetAccountId, setTargetAccountId] = useState(accounts[1]?.id ?? accounts[0]?.id ?? "");
   const [amount, setAmount] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
+  const [currency, setCurrency] = useState(accounts[0]?.default_currency ?? "PLN");
+  const [exchangeRate, setExchangeRate] = useState("1");
+  const [sourceCurrency, setSourceCurrency] = useState(accounts[0]?.default_currency ?? "PLN");
   const [sourceRate, setSourceRate] = useState("1");
+  const [targetCurrency, setTargetCurrency] = useState(
+    accounts[1]?.default_currency ?? accounts[0]?.default_currency ?? "PLN"
+  );
   const [targetRate, setTargetRate] = useState("1");
   const [categoryId, setCategoryId] = useState("");
   const [details, setDetails] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const sourceAccount = accounts.find((a) => a.id === sourceAccountId);
+  const targetAccount = accounts.find((a) => a.id === targetAccountId);
+  const crossCurrencyTransfer = useMemo(
+    () => sourceCurrency !== targetCurrency,
+    [sourceCurrency, targetCurrency]
+  );
+
   const cats = type === "income" ? incomeCategories : expenseCategories;
   const showCategory = type === "expense" || type === "income";
+
+  useEffect(() => {
+    const acc = accounts.find((a) => a.id === accountId);
+    if (acc) {
+      setCurrency(acc.default_currency);
+      setExchangeRate(acc.default_currency === "PLN" ? "1" : exchangeRate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, accounts]);
+
+  useEffect(() => {
+    if (sourceAccount) {
+      setSourceCurrency(sourceAccount.default_currency);
+      if (sourceAccount.default_currency === "PLN") setSourceRate("1");
+    }
+  }, [sourceAccount]);
+
+  useEffect(() => {
+    if (targetAccount) {
+      setTargetCurrency(targetAccount.default_currency);
+      if (targetAccount.default_currency === "PLN") setTargetRate("1");
+    }
+  }, [targetAccount]);
+
+  function handleCurrencyChange(value: string) {
+    setCurrency(value);
+    if (value === "PLN") setExchangeRate("1");
+  }
+
+  function handleSourceCurrencyChange(value: string) {
+    setSourceCurrency(value);
+    if (value === "PLN") setSourceRate("1");
+  }
+
+  function handleTargetCurrencyChange(value: string) {
+    setTargetCurrency(value);
+    if (value === "PLN") setTargetRate("1");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,37 +159,52 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
       details: details || undefined,
     };
 
-    if (type === "exchange") {
+    if (type === "transfer") {
       const parsedSource = Number(amount.replace(",", "."));
-      const parsedTarget = Number(targetAmount.replace(",", "."));
       const parsedSourceRate = Number(sourceRate.replace(",", "."));
+      if (Number.isNaN(parsedSource) || parsedSource <= 0) {
+        setError("Podaj poprawną kwotę z konta źródłowego");
+        setLoading(false);
+        return;
+      }
+      const parsedTarget = crossCurrencyTransfer
+        ? Number(targetAmount.replace(",", "."))
+        : parsedSource;
       const parsedTargetRate = Number(targetRate.replace(",", "."));
-      if ([parsedSource, parsedTarget, parsedSourceRate, parsedTargetRate].some(Number.isNaN)) {
+      if (
+        [parsedTarget, parsedSourceRate, parsedTargetRate].some(
+          (n) => Number.isNaN(n) || n <= 0
+        )
+      ) {
         setError("Niepoprawne kwoty lub kursy");
         setLoading(false);
         return;
       }
       payload.source_account_id = sourceAccountId;
       payload.target_account_id = targetAccountId;
-      payload.source_amount = Math.abs(parsedSource);
-      payload.target_amount = Math.abs(parsedTarget);
+      payload.amount = parsedSource;
+      payload.target_amount = parsedTarget;
+      payload.source_currency = sourceCurrency;
+      payload.target_currency = targetCurrency;
       payload.source_exchange_rate = parsedSourceRate;
       payload.target_exchange_rate = parsedTargetRate;
     } else {
       const parsedAmount = Number(amount.replace(",", "."));
-      if (Number.isNaN(parsedAmount)) {
-        setError("Niepoprawna kwota");
+      const parsedRate = Number(exchangeRate.replace(",", "."));
+      if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+        setError("Podaj poprawną kwotę");
         setLoading(false);
         return;
       }
-      payload.amount = type === "adjustment" ? parsedAmount : Math.abs(parsedAmount);
-
-      if (type === "transfer") {
-        payload.source_account_id = sourceAccountId;
-        payload.target_account_id = targetAccountId;
-      } else {
-        payload.account_id = accountId;
+      if (currency !== "PLN" && (Number.isNaN(parsedRate) || parsedRate <= 0)) {
+        setError("Podaj kurs wymiany do PLN");
+        setLoading(false);
+        return;
       }
+      payload.amount = parsedAmount;
+      payload.account_id = accountId;
+      payload.currency = currency;
+      payload.exchange_rate = currency === "PLN" ? 1 : parsedRate;
     }
 
     if (showCategory && categoryId) {
@@ -99,8 +221,8 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
       if (!res.ok) throw new Error(data.error ?? "Błąd");
       router.push(`/transactions/${data.id}`);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Błąd");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Błąd");
       setLoading(false);
     }
   }
@@ -136,24 +258,47 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
             className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
           />
         </div>
-        {type !== "exchange" && (
-          <div>
-            <label className="text-xs font-medium">
-              {type === "adjustment" ? "Kwota korekty (+/−)" : "Kwota"}
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder={type === "adjustment" ? "+12500 lub -500" : "0.00"}
-              required
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-            />
-          </div>
-        )}
 
-        {type === "transfer" || type === "exchange" ? (
+        {type !== "transfer" ? (
+          <>
+            <div>
+              <label className="text-xs font-medium">Kwota</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                required
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium">Konto</label>
+              <select
+                value={accountId}
+                onChange={(e) => setAccountId(e.target.value)}
+                required
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+              >
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.default_currency})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <CurrencyRateFields
+                idPrefix="tx"
+                currency={currency}
+                exchangeRate={exchangeRate}
+                onCurrency={handleCurrencyChange}
+                onRate={setExchangeRate}
+              />
+            </div>
+          </>
+        ) : (
           <>
             <div className="sm:col-span-2">
               <label className="text-xs font-medium">Z konta</label>
@@ -165,7 +310,7 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
               >
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name}
+                    {a.name} ({a.default_currency})
                   </option>
                 ))}
               </select>
@@ -180,78 +325,60 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
               >
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name}
+                    {a.name} ({a.default_currency})
                   </option>
                 ))}
               </select>
             </div>
-            {type === "exchange" && (
-              <>
-                <div>
-                  <label className="text-xs font-medium">Kwota źródłowa (ujemna z konta)</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="np. 100 EUR"
-                    required
-                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Kurs źródłowy → PLN</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={sourceRate}
-                    onChange={(e) => setSourceRate(e.target.value)}
-                    required
-                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Kwota docelowa (na konto)</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={targetAmount}
-                    onChange={(e) => setTargetAmount(e.target.value)}
-                    placeholder="np. 430 PLN"
-                    required
-                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Kurs docelowy → PLN</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={targetRate}
-                    onChange={(e) => setTargetRate(e.target.value)}
-                    required
-                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  />
-                </div>
-              </>
+            <div>
+              <label className="text-xs font-medium">Kwota z konta źródłowego</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+              />
+            </div>
+            {crossCurrencyTransfer && (
+              <div>
+                <label className="text-xs font-medium">Kwota na konto docelowe</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
+                  required
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                />
+              </div>
+            )}
+            {(sourceCurrency !== "PLN" || crossCurrencyTransfer) && (
+              <div className="sm:col-span-2 space-y-3 rounded-lg border border-border/60 bg-slate-50/50 p-3">
+                <p className="text-xs font-medium text-muted">Strona źródłowa</p>
+                <CurrencyRateFields
+                  idPrefix="src"
+                  currency={sourceCurrency}
+                  exchangeRate={sourceRate}
+                  onCurrency={handleSourceCurrencyChange}
+                  onRate={setSourceRate}
+                />
+              </div>
+            )}
+            {crossCurrencyTransfer && (
+              <div className="sm:col-span-2 space-y-3 rounded-lg border border-border/60 bg-slate-50/50 p-3">
+                <p className="text-xs font-medium text-muted">Strona docelowa</p>
+                <CurrencyRateFields
+                  idPrefix="tgt"
+                  currency={targetCurrency}
+                  exchangeRate={targetRate}
+                  onCurrency={handleTargetCurrencyChange}
+                  onRate={setTargetRate}
+                />
+              </div>
             )}
           </>
-        ) : (
-          <div className="sm:col-span-2">
-            <label className="text-xs font-medium">Konto</label>
-            <select
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-            >
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({a.default_currency})
-                </option>
-              ))}
-            </select>
-          </div>
         )}
 
         {showCategory && (

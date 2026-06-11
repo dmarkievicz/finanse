@@ -3,20 +3,20 @@ import { createClient } from "@/lib/supabase/server";
 import { matchCategoryFromRules } from "@/lib/categorization/match-rule";
 import { signedAmountPln } from "@/lib/balances/invariants";
 
-type TxType = "income" | "expense" | "transfer" | "exchange" | "adjustment";
+type UserTxType = "income" | "expense" | "transfer";
 
 interface CreateTransactionBody {
   date: string;
-  type: TxType;
+  type: UserTxType;
   account_id?: string;
   source_account_id?: string;
   target_account_id?: string;
   amount?: number;
-  source_amount?: number;
   target_amount?: number;
   currency?: string;
   source_currency?: string;
   target_currency?: string;
+  exchange_rate?: number;
   source_exchange_rate?: number;
   target_exchange_rate?: number;
   category_id?: string | null;
@@ -74,13 +74,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Wymagane: data, typ" }, { status: 400 });
     }
 
-    if (body.type !== "exchange" && body.amount == null) {
-      return NextResponse.json({ error: "Wymagane: kwota" }, { status: 400 });
+    const allowed: UserTxType[] = ["income", "expense", "transfer"];
+    if (!allowed.includes(body.type)) {
+      return NextResponse.json(
+        { error: "Dozwolone typy: wydatek, przychód, transfer" },
+        { status: 400 }
+      );
     }
 
-    const allowed: TxType[] = ["income", "expense", "transfer", "exchange", "adjustment"];
-    if (!allowed.includes(body.type)) {
-      return NextResponse.json({ error: "Nieobsługiwany typ transakcji" }, { status: 400 });
+    if (body.amount == null) {
+      return NextResponse.json({ error: "Wymagane: kwota" }, { status: 400 });
     }
 
     const rules = await loadActiveRules(supabase, user.id);
@@ -108,34 +111,36 @@ export async function POST(request: Request) {
     if (txError) throw txError;
     const txId = (tx as { id: string }).id;
 
-    const absAmount = Math.abs(Number(body.amount ?? 0));
+    const absAmount = Math.abs(Number(body.amount));
 
-    if (body.type === "exchange") {
+    if (body.type === "transfer") {
       if (!body.source_account_id || !body.target_account_id) {
-        return NextResponse.json(
-          { error: "Przewalutowanie wymaga konta źródłowego i docelowego" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Transfer wymaga konta źródłowego i docelowego" }, { status: 400 });
       }
-      const sourceAmt = Math.abs(Number(body.source_amount ?? body.amount));
-      const targetAmt = Math.abs(Number(body.target_amount));
-      if (!sourceAmt || !targetAmt) {
-        return NextResponse.json(
-          { error: "Wymagane kwoty: źródłowa i docelowa" },
-          { status: 400 }
-        );
-      }
-
       const source = await getAccount(supabase, user.id, body.source_account_id);
       const target = await getAccount(supabase, user.id, body.target_account_id);
       if (!source || !target) {
-        return NextResponse.json({ error: "Nie znaleziono kont" }, { status: 404 });
+        return NextResponse.json({ error: "Nie znaleziono kont transferu" }, { status: 404 });
       }
 
-      const sourceCurrency = body.source_currency ?? source.default_currency;
+      const sourceCurrency = body.source_currency ?? body.currency ?? source.default_currency;
       const targetCurrency = body.target_currency ?? target.default_currency;
-      const sourceRate = Number(body.source_exchange_rate ?? 1);
+      const sourceRate = Number(body.source_exchange_rate ?? body.exchange_rate ?? 1);
       const targetRate = Number(body.target_exchange_rate ?? 1);
+      const sourceAmt = absAmount;
+      const targetAmt =
+        body.target_amount != null ? Math.abs(Number(body.target_amount)) : absAmount;
+
+      const sourcePln = signedAmountPln(-sourceAmt, sourceRate);
+      const targetPln = signedAmountPln(targetAmt, targetRate);
+      if (Math.abs(sourcePln + targetPln) > 0.05) {
+        return NextResponse.json(
+          {
+            error: `Transfer niezbilansowany w PLN (różnica ${(sourcePln + targetPln).toFixed(2)} zł). Sprawdź kwoty i kursy.`,
+          },
+          { status: 400 }
+        );
+      }
 
       const { error: entryError } = await supabase.from("transaction_entries").insert([
         {
@@ -145,7 +150,7 @@ export async function POST(request: Request) {
           amount: -sourceAmt,
           currency: sourceCurrency,
           exchange_rate: sourceRate,
-          amount_pln: signedAmountPln(-sourceAmt, sourceRate),
+          amount_pln: sourcePln,
           sort_order: 0,
         },
         {
@@ -155,62 +160,10 @@ export async function POST(request: Request) {
           amount: targetAmt,
           currency: targetCurrency,
           exchange_rate: targetRate,
-          amount_pln: signedAmountPln(targetAmt, targetRate),
+          amount_pln: targetPln,
           sort_order: 1,
         },
       ] as never);
-      if (entryError) throw entryError;
-    } else if (body.type === "transfer") {
-      if (!body.source_account_id || !body.target_account_id) {
-        return NextResponse.json({ error: "Transfer wymaga konta źródłowego i docelowego" }, { status: 400 });
-      }
-      const source = await getAccount(supabase, user.id, body.source_account_id);
-      const target = await getAccount(supabase, user.id, body.target_account_id);
-      if (!source || !target) {
-        return NextResponse.json({ error: "Nie znaleziono kont transferu" }, { status: 404 });
-      }
-      const currency = body.currency ?? source.default_currency;
-      const { error: entryError } = await supabase.from("transaction_entries").insert([
-        {
-          transaction_id: txId,
-          user_id: user.id,
-          account_id: source.id,
-          amount: -absAmount,
-          currency,
-          exchange_rate: 1,
-          amount_pln: -absAmount,
-          sort_order: 0,
-        },
-        {
-          transaction_id: txId,
-          user_id: user.id,
-          account_id: target.id,
-          amount: absAmount,
-          currency,
-          exchange_rate: 1,
-          amount_pln: absAmount,
-          sort_order: 1,
-        },
-      ] as never);
-      if (entryError) throw entryError;
-    } else if (body.type === "adjustment") {
-      if (!body.account_id) {
-        return NextResponse.json({ error: "Korekta wymaga konta" }, { status: 400 });
-      }
-      const acc = await getAccount(supabase, user.id, body.account_id);
-      if (!acc) return NextResponse.json({ error: "Nie znaleziono konta" }, { status: 404 });
-      const signed = Number(body.amount);
-      const currency = body.currency ?? acc.default_currency;
-      const { error: entryError } = await supabase.from("transaction_entries").insert({
-        transaction_id: txId,
-        user_id: user.id,
-        account_id: acc.id,
-        amount: signed,
-        currency,
-        exchange_rate: 1,
-        amount_pln: signed,
-        sort_order: 0,
-      } as never);
       if (entryError) throw entryError;
     } else {
       if (!body.account_id) {
@@ -218,7 +171,13 @@ export async function POST(request: Request) {
       }
       const acc = await getAccount(supabase, user.id, body.account_id);
       if (!acc) return NextResponse.json({ error: "Nie znaleziono konta" }, { status: 404 });
-      const currency = body.currency ?? acc.default_currency;
+
+      const currency = body.currency ?? acc.default_currency ?? "PLN";
+      const rate = currency === "PLN" ? 1 : Number(body.exchange_rate ?? 1);
+      if (currency !== "PLN" && (!rate || rate <= 0)) {
+        return NextResponse.json({ error: "Podaj kurs wymiany do PLN" }, { status: 400 });
+      }
+
       const signedAmount = body.type === "expense" ? -absAmount : absAmount;
       const { error: entryError } = await supabase.from("transaction_entries").insert({
         transaction_id: txId,
@@ -226,8 +185,8 @@ export async function POST(request: Request) {
         account_id: acc.id,
         amount: signedAmount,
         currency,
-        exchange_rate: 1,
-        amount_pln: signedAmount,
+        exchange_rate: rate,
+        amount_pln: signedAmountPln(signedAmount, rate),
         sort_order: 0,
       } as never);
       if (entryError) throw entryError;

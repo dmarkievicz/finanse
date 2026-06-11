@@ -32,7 +32,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const activeAccounts = lookup.accounts
     .filter((a) => a.lifecycle_status === "active")
-    .map((a) => ({ id: a.id, name: a.name }));
+    .map((a) => ({ id: a.id, name: a.name, default_currency: a.default_currency }));
 
   return (
     <div className="space-y-5">

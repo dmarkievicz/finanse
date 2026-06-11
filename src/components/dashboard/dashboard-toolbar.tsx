@@ -29,7 +29,7 @@ interface DashboardToolbarProps {
   chartRange: DashboardChartRange;
   dateFrom?: string;
   dateTo?: string;
-  accounts: { id: string; name: string }[];
+  accounts: { id: string; name: string; default_currency?: string }[];
   categories: { id: string; name: string; type: string }[];
 }
 

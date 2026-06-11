@@ -16,7 +16,7 @@ export default async function NewTransactionPage() {
     <div>
       <PageHeader
         title="Nowa transakcja"
-        description="Wydatek, przychód, transfer, przewalutowanie lub korekta"
+        description="Wydatek, przychód lub transfer — w PLN lub innej walucie"
       />
 
       <Link
