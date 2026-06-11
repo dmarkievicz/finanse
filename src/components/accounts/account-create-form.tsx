@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { ACCOUNT_CURRENCIES } from "@/lib/accounts/patch-fields";
 import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPE_ORDER } from "@/lib/queries/accounts";
 import type { AccountType } from "@/types/database";
-
-const CURRENCIES = ["PLN", "EUR", "USD", "GBP", "CHF"] as const;
 
 export function AccountCreateForm() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("bank");
   const [currency, setCurrency] = useState("PLN");
   const [notes, setNotes] = useState("");
@@ -27,6 +27,7 @@ export function AccountCreateForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          account_number: accountNumber || null,
           account_type: accountType,
           default_currency: currency,
           notes: notes || null,
@@ -57,6 +58,17 @@ export function AccountCreateForm() {
         />
       </div>
 
+      <div>
+        <label className="text-xs font-medium text-muted">Numer konta (opcjonalnie)</label>
+        <input
+          type="text"
+          value={accountNumber}
+          onChange={(e) => setAccountNumber(e.target.value)}
+          placeholder="np. IBAN lub numer rachunku"
+          className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm font-mono"
+        />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="text-xs font-medium text-muted">Typ</label>
@@ -79,7 +91,7 @@ export function AccountCreateForm() {
             onChange={(e) => setCurrency(e.target.value)}
             className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
           >
-            {CURRENCIES.map((c) => (
+            {ACCOUNT_CURRENCIES.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

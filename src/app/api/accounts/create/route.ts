@@ -1,21 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildAccountUpdate } from "@/lib/accounts/patch-fields";
 import { ACTIVE_ACCOUNT_DEFAULTS } from "@/lib/import/account-defaults";
 import type { AccountType } from "@/types/database";
-
-const VALID_TYPES: AccountType[] = [
-  "bank",
-  "cash",
-  "broker",
-  "deposit",
-  "investment",
-  "loan",
-  "real_estate",
-  "other",
-];
+import { ACCOUNT_TYPE_ORDER } from "@/lib/queries/accounts";
 
 interface CreateBody {
   name: string;
+  account_number?: string | null;
   account_type: AccountType;
   default_currency?: string;
   notes?: string | null;
@@ -37,8 +29,15 @@ export async function POST(request: Request) {
     if (!name) {
       return NextResponse.json({ error: "Podaj nazwę konta" }, { status: 400 });
     }
-    if (!VALID_TYPES.includes(body.account_type)) {
+    if (!ACCOUNT_TYPE_ORDER.includes(body.account_type)) {
       return NextResponse.json({ error: "Niepoprawny typ konta" }, { status: 400 });
+    }
+
+    const currencyPatch = buildAccountUpdate({
+      default_currency: body.default_currency ?? "PLN",
+    });
+    if (currencyPatch.error) {
+      return NextResponse.json({ error: currencyPatch.error }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -46,12 +45,13 @@ export async function POST(request: Request) {
       .insert({
         user_id: user.id,
         name,
+        account_number: body.account_number?.trim() || null,
         account_type: body.account_type,
-        default_currency: body.default_currency?.trim() || "PLN",
+        default_currency: currencyPatch.fields.default_currency,
         notes: body.notes?.trim() || null,
         ...ACTIVE_ACCOUNT_DEFAULTS,
       } as never)
-      .select("id, name, account_type, default_currency")
+      .select("id, name, account_number, account_type, default_currency")
       .single();
 
     if (error) {

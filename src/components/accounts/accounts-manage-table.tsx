@@ -182,13 +182,21 @@ export function AccountsManageTable({ accounts }: AccountsManageTableProps) {
                     {a.include_in_net_worth ? "Tak" : "Nie"}
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/transactions?account=${a.account_id}`}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
-                    >
-                      Historia
-                      <ArrowRight className="h-3 w-3" />
-                    </Link>
+                    <div className="flex flex-col gap-1">
+                      <Link
+                        href={`/accounts/${a.account_id}`}
+                        className="text-xs font-medium text-accent hover:underline"
+                      >
+                        Edytuj
+                      </Link>
+                      <Link
+                        href={`/transactions?account=${a.account_id}`}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-accent hover:underline"
+                      >
+                        Historia
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

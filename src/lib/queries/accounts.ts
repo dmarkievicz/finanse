@@ -1,4 +1,9 @@
-import type { AccountBalance, AccountManageRow, AccountType } from "@/types/database";
+import type {
+  Account,
+  AccountBalance,
+  AccountManageRow,
+  AccountType,
+} from "@/types/database";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import {
   rpcAccountBalances,
@@ -123,13 +128,23 @@ export async function fetchAccountName(
   supabase: ServerSupabaseClient,
   accountId: string
 ): Promise<string | null> {
+  const account = await fetchAccountDetail(supabase, accountId);
+  return account?.name ?? null;
+}
+
+export async function fetchAccountDetail(
+  supabase: ServerSupabaseClient,
+  accountId: string
+): Promise<Account | null> {
   const { data, error } = await supabase
     .from("accounts")
-    .select("name")
+    .select(
+      "id, user_id, name, account_number, account_type, default_currency, is_active, lifecycle_status, show_on_dashboard, include_in_net_worth, needs_review, imported_at, notes, created_at, updated_at, deleted_at"
+    )
     .eq("id", accountId)
     .is("deleted_at", null)
     .maybeSingle();
 
   if (error) throw error;
-  return (data as { name: string } | null)?.name ?? null;
+  return (data as Account | null) ?? null;
 }

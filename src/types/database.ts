@@ -41,6 +41,7 @@ export interface Account {
   id: string;
   user_id: string;
   name: string;
+  account_number: string | null;
   account_type: AccountType;
   default_currency: string;
   is_active: boolean;

@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { TransactionsTable } from "@/components/transactions/transactions-table";
 import { createClient } from "@/lib/supabase/server";
-import { fetchAccountName } from "@/lib/queries/accounts";
+import { AccountEditForm } from "@/components/accounts/account-edit-form";
+import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
+import { fetchAccountDetail } from "@/lib/queries/accounts";
 import { fetchTransactions } from "@/lib/queries/transactions";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { rpcAllAccountBalances } from "@/lib/supabase/rpc";
@@ -23,8 +25,9 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   const page = Number(pageStr ?? "1");
 
   const supabase = await createClient();
-  const name = await fetchAccountName(supabase, id);
-  if (!name) notFound();
+  const account = await fetchAccountDetail(supabase, id);
+  if (!account) notFound();
+  const name = account.name;
 
   const settings = await fetchUserSettings(supabase);
   const mode = balanceMode(settings);
@@ -47,7 +50,10 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   return (
     <div>
-      <PageHeader title={name} description="Historia transakcji konta" />
+      <PageHeader
+        title={name}
+        description={`${ACCOUNT_TYPE_LABELS[account.account_type]} · ${account.default_currency}${account.account_number ? ` · ${account.account_number}` : ""}`}
+      />
 
       <Link
         href="/accounts"
@@ -56,6 +62,8 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
         <ArrowLeft className="h-4 w-4" />
         Wszystkie konta
       </Link>
+
+      <AccountEditForm account={account} />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5">
