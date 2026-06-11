@@ -1,28 +1,40 @@
-import type { AccountBalance, CategoryBreakdown, MonthlyCashflow } from "@/types/database";
+import type { AccountManageRow, CategoryBreakdown } from "@/types/database";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import {
   rpcAccountBalances,
+  rpcAccountsNeedsReviewCount,
+  rpcAllAccountBalances,
+  rpcCashflowHistory,
   rpcCategoryBreakdown,
   rpcMonthlyCashflow,
   rpcNeedsReviewCount,
   rpcNetWorth,
+  rpcPeriodCashflow,
+  type BalanceMode,
+  type CashflowHistoryRow,
 } from "@/lib/supabase/rpc";
-import { fetchInvestments } from "@/lib/queries/investments";
-import type { AllocationSlice } from "@/lib/queries/investments";
+import { fetchInvestments, type AllocationSlice } from "@/lib/queries/investments";
+import { fetchInstrumentsPortfolio, type InstrumentRow } from "@/lib/queries/instruments";
 import { fetchUserGoal } from "@/lib/queries/goals";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
-import type { BalanceMode } from "@/lib/supabase/rpc";
-
-export interface MonthPoint {
-  year: number;
-  month: number;
-  label: string;
-}
+import { computeCurrencyExposure, type CurrencyExposureResult } from "@/lib/dashboard/currency-exposure";
+import { buildDashboardAlerts, type DashboardAlert } from "@/lib/dashboard/alerts";
+import { computeGoalMetrics, type GoalMetrics } from "@/lib/dashboard/goal-metrics";
+import {
+  chartMonthsCount,
+  type DashboardChartRange,
+  type DashboardPeriod,
+} from "@/lib/dashboard/period";
+import { INSTRUMENT_TYPE_LABELS, type InstrumentType } from "@/lib/queries/instruments";
 
 export interface CashflowMonth {
   label: string;
+  year: number;
+  month: number;
   income: number;
   expenses: number;
+  surplus: number;
+  hasData: boolean;
 }
 
 export interface CategorySlice {
@@ -31,13 +43,20 @@ export interface CategorySlice {
   total: number;
   color: string;
   categoryId: string | null;
+  trendPct: number | null;
 }
 
-export interface CurrencySlice {
-  code: string;
-  pct: number;
-  balance: number;
-  color: string;
+export interface DashboardAccountRow {
+  account_id: string;
+  account_name: string;
+  account_type: string;
+  currency: string;
+  balance_pln: number;
+  lifecycle_status: string;
+  show_on_dashboard: boolean;
+  include_in_net_worth: boolean;
+  has_opening_balance: boolean;
+  balanceChange: number | null;
 }
 
 export interface RecentTransactionRow {
@@ -50,21 +69,52 @@ export interface RecentTransactionRow {
   status: string;
 }
 
-export interface DashboardData {
+export interface DashboardKpi {
   netWorth: number;
-  currentCashflow: MonthlyCashflow;
-  previousCashflow: MonthlyCashflow;
+  netWorthChange: number | null;
+  liquidAssets: number;
+  liquidAssetsChange: number | null;
+  income: number;
+  incomeChange: number | null;
+  expenses: number;
+  expensesChange: number | null;
+  surplus: number;
+  surplusChange: number | null;
+  savingsRate: number;
+  savingsRateChange: number | null;
+}
+
+export interface DashboardInvestments {
+  status: "ready" | "partial" | "empty" | "needs_config";
+  totalPln: number;
+  pnlPln: number | null;
+  allocation: AllocationSlice[];
+  instrumentCount: number;
+  missingPrices: number;
+  message?: string;
+}
+
+export interface DashboardData {
+  period: DashboardPeriod;
+  chartRange: DashboardChartRange;
+  asOfDate: string;
+  kpis: DashboardKpi;
+  goal: {
+    name: string;
+    goalType: string;
+    current: number;
+    target: number;
+    targetDate: string | null;
+    metrics: GoalMetrics;
+  };
   cashflowHistory: CashflowMonth[];
   categoryBreakdown: CategorySlice[];
   categoryTotal: number;
-  accountBalances: AccountBalance[];
+  accounts: DashboardAccountRow[];
   recentTransactions: RecentTransactionRow[];
-  currencyExposure: CurrencySlice[];
-  needsReviewCount: number;
-  goal: { name: string; current: number; target: number; targetDate: string | null };
-  currentMonth: string;
-  investmentsTotal: number;
-  investmentsAllocation: AllocationSlice[];
+  currencyExposure: CurrencyExposureResult;
+  investments: DashboardInvestments;
+  alerts: DashboardAlert[];
 }
 
 const CATEGORY_COLORS = [
@@ -74,95 +124,73 @@ const CATEGORY_COLORS = [
   "#8b5cf6",
   "#f59e0b",
   "#94a3b8",
-  "#ec4899",
-  "#14b8a6",
 ];
 
-const CURRENCY_COLORS: Record<string, string> = {
-  PLN: "#1e3a5f",
-  EUR: "#0d9488",
-  USD: "#3b82f6",
-};
+const LIQUID_TYPES = new Set(["bank", "cash"]);
 
-export function getLast6Months(reference: Date): MonthPoint[] {
-  const months: MonthPoint[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(reference.getFullYear(), reference.getMonth() - i, 1);
-    months.push({
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      label: new Intl.DateTimeFormat("pl-PL", { month: "short" }).format(d),
-    });
-  }
-  return months;
+function monthLabel(year: number, month: number): string {
+  return new Intl.DateTimeFormat("pl-PL", { month: "short", year: "2-digit" }).format(
+    new Date(year, month - 1, 1)
+  );
 }
 
-function monthBounds(year: number, month: number) {
-  const from = `${year}-${String(month).padStart(2, "0")}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
-  const to = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  return { from, to };
+function sumLiquidAssets(balances: { account_type: string; balance_pln: number }[]): number {
+  return balances
+    .filter((b) => LIQUID_TYPES.has(b.account_type) && Number(b.balance_pln) > 0)
+    .reduce((s, b) => s + Number(b.balance_pln), 0);
 }
 
-function buildCategorySlices(rows: CategoryBreakdown[]): {
-  slices: CategorySlice[];
-  total: number;
-} {
-  const total = rows.reduce((sum, r) => sum + Number(r.total_pln), 0);
+function buildCategorySlices(
+  current: CategoryBreakdown[],
+  previous: CategoryBreakdown[]
+): { slices: CategorySlice[]; total: number } {
+  const total = current.reduce((sum, r) => sum + Number(r.total_pln), 0);
   if (total === 0) return { slices: [], total: 0 };
 
-  const top = rows.slice(0, 6);
-  const rest = rows.slice(6);
+  const prevMap = new Map(
+    previous.map((r) => [r.category_id ?? "none", Number(r.total_pln)])
+  );
+
+  const top = current.slice(0, 5);
+  const rest = current.slice(5);
   const restTotal = rest.reduce((sum, r) => sum + Number(r.total_pln), 0);
 
-  const slices: CategorySlice[] = top.map((r, i) => ({
-    name: r.category_name ?? "Bez kategorii",
-    total: Number(r.total_pln),
-    pct: Math.round((Number(r.total_pln) / total) * 100),
-    color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-    categoryId: r.category_id,
-  }));
+  const slices: CategorySlice[] = top.map((r, i) => {
+    const id = r.category_id ?? "none";
+    const cur = Number(r.total_pln);
+    const prev = prevMap.get(id) ?? 0;
+    let trendPct: number | null = null;
+    if (prev > 0) trendPct = Math.round(((cur - prev) / prev) * 1000) / 10;
+
+    return {
+      name: r.category_name ?? "Bez kategorii",
+      total: cur,
+      pct: Math.round((cur / total) * 1000) / 10,
+      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+      categoryId: r.category_id,
+      trendPct,
+    };
+  });
 
   if (restTotal > 0) {
     slices.push({
-      name: "Inne",
+      name: "Pozostałe",
       total: restTotal,
-      pct: Math.round((restTotal / total) * 100),
-      color: CATEGORY_COLORS[6],
+      pct: Math.round((restTotal / total) * 1000) / 10,
+      color: CATEGORY_COLORS[5],
       categoryId: null,
+      trendPct: null,
     });
   }
 
   return { slices, total };
 }
 
-function buildCurrencySlices(balances: AccountBalance[]): CurrencySlice[] {
-  const byCurrency = new Map<string, number>();
-  for (const b of balances) {
-    const code = b.currency || "PLN";
-    byCurrency.set(code, (byCurrency.get(code) ?? 0) + Number(b.balance_pln));
-  }
-
-  const total = [...byCurrency.values()].reduce((a, b) => a + b, 0);
-  if (total === 0) return [];
-
-  return [...byCurrency.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([code, balance]) => ({
-      code,
-      balance,
-      pct: Math.round((balance / total) * 100),
-      color: CURRENCY_COLORS[code] ?? "#64748b",
-    }));
-}
-
 function formatTransactionAmount(
   type: string,
   entries: { amount_pln: number; accounts: { name: string } | null }[]
 ): { amountLabel: string; account: string } {
-  if (!entries.length) {
-    return { amountLabel: "—", account: "—" };
-  }
+  if (!entries.length) return { amountLabel: "—", account: "—" };
 
   if (type === "transfer") {
     const source = entries.find((e) => e.amount_pln < 0);
@@ -173,59 +201,217 @@ function formatTransactionAmount(
       currency: "PLN",
       maximumFractionDigits: 0,
     }).format(amount);
-    const from = source?.accounts?.name ?? "?";
-    const to = target?.accounts?.name ?? "?";
-    return { amountLabel: fmt, account: `${from} → ${to}` };
+    return {
+      amountLabel: fmt,
+      account: `${source?.accounts?.name ?? "?"} → ${target?.accounts?.name ?? "?"}`,
+    };
   }
 
   const entry = entries[0];
   const amount = Number(entry.amount_pln);
-  const fmt = new Intl.NumberFormat("pl-PL", {
-    style: "currency",
-    currency: "PLN",
-    signDisplay: "exceptZero",
-    maximumFractionDigits: 0,
-  }).format(amount);
-
   return {
-    amountLabel: fmt,
+    amountLabel: new Intl.NumberFormat("pl-PL", {
+      style: "currency",
+      currency: "PLN",
+      signDisplay: "exceptZero",
+      maximumFractionDigits: 0,
+    }).format(amount),
     account: entry.accounts?.name ?? "—",
   };
 }
 
+function mapCashflowHistory(rows: CashflowHistoryRow[]): CashflowMonth[] {
+  return rows.map((r) => ({
+    label: monthLabel(r.year, r.month),
+    year: r.year,
+    month: r.month,
+    income: r.income_pln,
+    expenses: r.expense_pln,
+    surplus: r.surplus_pln,
+    hasData: r.has_data,
+  }));
+}
+
+async function fallbackCashflowHistory(
+  supabase: ServerSupabaseClient,
+  months: number,
+  asOf: Date,
+  mode: BalanceMode
+): Promise<CashflowMonth[]> {
+  const points: CashflowMonth[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(asOf.getFullYear(), asOf.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const cf = await rpcMonthlyCashflow(supabase, y, m, mode);
+    const hasData = cf.income_pln > 0 || cf.expense_pln > 0;
+    points.push({
+      label: monthLabel(y, m),
+      year: y,
+      month: m,
+      income: cf.income_pln,
+      expenses: cf.expense_pln,
+      surplus: cf.surplus_pln,
+      hasData,
+    });
+  }
+  return points;
+}
+
+function buildInvestmentsSection(
+  instruments: InstrumentRow[],
+  accountInvestments: Awaited<ReturnType<typeof fetchInvestments>>
+): DashboardInvestments {
+  const linkedIds = new Set(
+    instruments.map((i) => i.account_id).filter((id): id is string => id != null)
+  );
+  const unlinked = accountInvestments.positions.filter((p) => !linkedIds.has(p.account_id));
+  const instrumentsTotal = instruments.reduce((s, i) => s + i.market_value_pln, 0);
+  const unlinkedTotal = unlinked.reduce((s, p) => s + p.balance_pln, 0);
+  const totalPln = instrumentsTotal + unlinkedTotal;
+  const missingPrices = instruments.filter(
+    (i) => i.quantity !== 0 && i.last_price == null
+  ).length;
+
+  if (instruments.length === 0 && accountInvestments.positions.length === 0) {
+    return {
+      status: "empty",
+      totalPln: 0,
+      pnlPln: null,
+      allocation: [],
+      instrumentCount: 0,
+      missingPrices: 0,
+      message: "Dodaj instrumenty lub konta inwestycyjne, aby śledzić portfel.",
+    };
+  }
+
+  if (totalPln < 0) {
+    return {
+      status: "needs_config",
+      totalPln,
+      pnlPln: null,
+      allocation: [],
+      instrumentCount: instruments.length + unlinked.length,
+      missingPrices,
+      message:
+        "Wartość portfela jest ujemna — sprawdź salda kont inwestycyjnych i wyceny instrumentów.",
+    };
+  }
+
+  let allocation: AllocationSlice[] = [];
+  if (instruments.length > 0) {
+    const byType = new Map<string, number>();
+    for (const i of instruments) {
+      const label = INSTRUMENT_TYPE_LABELS[i.instrument_type as InstrumentType] ?? "Inne";
+      byType.set(label, (byType.get(label) ?? 0) + i.market_value_pln);
+    }
+    for (const p of unlinked) {
+      byType.set(p.category, (byType.get(p.category) ?? 0) + p.balance_pln);
+    }
+    const colors = ["#1e3a5f", "#0d9488", "#3b82f6", "#f59e0b", "#8b5cf6", "#94a3b8"];
+    allocation = [...byType.entries()]
+      .map(([name, t], idx) => ({
+        name,
+        total: t,
+        pct: totalPln > 0 ? Math.round((t / totalPln) * 100) : 0,
+        color: colors[idx % colors.length],
+      }))
+      .sort((a, b) => b.total - a.total);
+  } else {
+    allocation = accountInvestments.allocation;
+  }
+
+  const invested = instruments.reduce((s, i) => s + i.invested_pln, 0);
+  const pnlPln = instruments.length > 0 ? totalPln - invested : null;
+
+  const status =
+    missingPrices > 0 || (instruments.length === 0 && unlinked.length > 0)
+      ? "partial"
+      : "ready";
+
+  return {
+    status,
+    totalPln,
+    pnlPln,
+    allocation,
+    instrumentCount: instruments.length + unlinked.length,
+    missingPrices,
+    message:
+      status === "partial"
+        ? "Część danych inwestycyjnych wymaga uzupełnienia (wyceny lub instrumenty)."
+        : undefined,
+  };
+}
+
+function calcDelta(current: number, previous: number): number | null {
+  if (previous === 0 && current === 0) return null;
+  return current - previous;
+}
+
+function calcRateDelta(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return Math.round((current - previous) * 10) / 10;
+}
+
 export async function fetchDashboardData(
   supabase: ServerSupabaseClient,
+  period: DashboardPeriod,
+  chartRange: DashboardChartRange,
   reference = new Date()
 ): Promise<DashboardData> {
-  const year = reference.getFullYear();
-  const month = reference.getMonth() + 1;
-  const prev = new Date(reference.getFullYear(), reference.getMonth() - 1, 1);
-  const prevYear = prev.getFullYear();
-  const prevMonth = prev.getMonth() + 1;
-  const { from, to } = monthBounds(year, month);
-  const today = reference.toISOString().slice(0, 10);
-  const monthPoints = getLast6Months(reference);
+  const { current, previous } = period;
+  const asOfDate = current.to;
   const settings = await fetchUserSettings(supabase);
   const mode: BalanceMode = balanceMode(settings);
+  const chartMonths = chartMonthsCount(chartRange, reference);
+
+  const prevAsOfDate = previous.to;
 
   const [
     netWorth,
-    currentCashflow,
-    previousCashflow,
+    prevNetWorth,
+    periodCashflow,
+    prevCashflow,
     accountBalances,
-    categoryRows,
+    allAccounts,
+    categoryCurrent,
+    categoryPrevious,
     needsReviewCount,
-    investmentsData,
+    accountsNeedsReviewCount,
+    accountInvestments,
+    instruments,
     recentRes,
-    ...cashflowMonths
+    uncategorizedRes,
+    importErrorsRes,
+    failedImportsRes,
+    cashflowRaw,
   ] = await Promise.all([
-    rpcNetWorth(supabase, today, mode),
-    rpcMonthlyCashflow(supabase, year, month, mode),
-    rpcMonthlyCashflow(supabase, prevYear, prevMonth, mode),
-    rpcAccountBalances(supabase, today, mode),
-    rpcCategoryBreakdown(supabase, from, to, mode),
+    rpcNetWorth(supabase, asOfDate, mode),
+    rpcNetWorth(supabase, prevAsOfDate, mode),
+    rpcPeriodCashflow(supabase, current.from, current.to, mode).catch(() =>
+      rpcMonthlyCashflow(
+        supabase,
+        Number(current.from.slice(0, 4)),
+        Number(current.from.slice(5, 7)),
+        mode
+      )
+    ),
+    rpcPeriodCashflow(supabase, previous.from, previous.to, mode).catch(() =>
+      rpcMonthlyCashflow(
+        supabase,
+        Number(previous.from.slice(0, 4)),
+        Number(previous.from.slice(5, 7)),
+        mode
+      )
+    ),
+    rpcAccountBalances(supabase, asOfDate, mode),
+    rpcAllAccountBalances(supabase, asOfDate, mode),
+    rpcCategoryBreakdown(supabase, current.from, current.to, mode),
+    rpcCategoryBreakdown(supabase, previous.from, previous.to, mode),
     rpcNeedsReviewCount(supabase),
-    fetchInvestments(supabase, today),
+    rpcAccountsNeedsReviewCount(supabase),
+    fetchInvestments(supabase, asOfDate),
+    fetchInstrumentsPortfolio(supabase),
     supabase
       .from("transactions")
       .select(
@@ -234,21 +420,107 @@ export async function fetchDashboardData(
          transaction_entries (amount_pln, accounts (name))`
       )
       .is("deleted_at", null)
+      .neq("status", "needs_review")
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(5),
-    ...monthPoints.map((m) => rpcMonthlyCashflow(supabase, m.year, m.month, mode)),
+      .limit(8),
+    supabase
+      .from("transactions")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .eq("status", "confirmed")
+      .is("category_id", null)
+      .in("type", ["income", "expense"]),
+    supabase
+      .from("import_rows")
+      .select("*", { count: "exact", head: true })
+      .not("validation_errors", "is", null),
+    supabase
+      .from("imports")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "failed"),
+    rpcCashflowHistory(supabase, Math.max(chartMonths, 12), asOfDate, mode),
   ]);
 
   if (recentRes.error) throw recentRes.error;
 
-  const { slices: categoryBreakdown, total: categoryTotal } = buildCategorySlices(categoryRows);
+  const liquidAssets = sumLiquidAssets(accountBalances);
+  const [prevAllAccounts, prevAccountBalances] = await Promise.all([
+    rpcAllAccountBalances(supabase, prevAsOfDate, mode),
+    rpcAccountBalances(supabase, prevAsOfDate, mode),
+  ]);
+  const prevLiquid = sumLiquidAssets(prevAccountBalances);
+  const prevBalanceByAccount = new Map(
+    (prevAllAccounts as AccountManageRow[]).map((a) => [
+      a.account_id,
+      Number(a.balance_pln),
+    ])
+  );
 
-  const cashflowHistory: CashflowMonth[] = monthPoints.map((m, i) => ({
-    label: m.label,
-    income: cashflowMonths[i].income_pln,
-    expenses: cashflowMonths[i].expense_pln,
-  }));
+  const savingsRate =
+    periodCashflow.income_pln > 0
+      ? (periodCashflow.surplus_pln / periodCashflow.income_pln) * 100
+      : 0;
+  const prevSavingsRate =
+    prevCashflow.income_pln > 0
+      ? (prevCashflow.surplus_pln / prevCashflow.income_pln) * 100
+      : 0;
+
+  const kpis: DashboardKpi = {
+    netWorth,
+    netWorthChange: calcDelta(netWorth, prevNetWorth),
+    liquidAssets,
+    liquidAssetsChange: calcDelta(liquidAssets, prevLiquid),
+    income: periodCashflow.income_pln,
+    incomeChange: calcDelta(periodCashflow.income_pln, prevCashflow.income_pln),
+    expenses: periodCashflow.expense_pln,
+    expensesChange: calcDelta(periodCashflow.expense_pln, prevCashflow.expense_pln),
+    surplus: periodCashflow.surplus_pln,
+    surplusChange: calcDelta(periodCashflow.surplus_pln, prevCashflow.surplus_pln),
+    savingsRate,
+    savingsRateChange: calcRateDelta(savingsRate, prevSavingsRate),
+  };
+
+  const goalData = await fetchUserGoal(supabase, netWorth, liquidAssets);
+  const goalMetrics = computeGoalMetrics(
+    goalData.current,
+    goalData.target_amount,
+    goalData.target_date,
+    periodCashflow.surplus_pln
+  );
+
+  const { slices: categoryBreakdown, total: categoryTotal } = buildCategorySlices(
+    categoryCurrent,
+    categoryPrevious
+  );
+
+  let cashflowHistory = mapCashflowHistory(cashflowRaw);
+  if (cashflowHistory.length === 0) {
+    cashflowHistory = await fallbackCashflowHistory(
+      supabase,
+      Math.max(chartMonths, 12),
+      reference,
+      mode
+    );
+  }
+
+  const accounts: DashboardAccountRow[] = (allAccounts as AccountManageRow[]).map((a) => {
+    const balance = Number(a.balance_pln);
+    const prev = prevBalanceByAccount.get(a.account_id);
+    const balanceChange = prev != null ? balance - prev : null;
+    return {
+      account_id: a.account_id,
+      account_name: a.account_name,
+      account_type: a.account_type,
+      currency: a.currency,
+      balance_pln: balance,
+      lifecycle_status: a.lifecycle_status,
+      show_on_dashboard: a.show_on_dashboard,
+      include_in_net_worth: a.include_in_net_worth,
+      has_opening_balance: a.has_opening_balance,
+      balanceChange,
+    };
+  });
 
   type RecentTxRow = {
     id: string;
@@ -262,51 +534,61 @@ export async function fetchDashboardData(
   const recentTransactions: RecentTransactionRow[] = (
     (recentRes.data ?? []) as RecentTxRow[]
   ).map((tx) => {
-    const entries = tx.transaction_entries ?? [];
-    const { amountLabel, account } = formatTransactionAmount(tx.type, entries);
-    const cat = tx.categories as { name: string } | null;
-
+    const { amountLabel, account } = formatTransactionAmount(
+      tx.type,
+      tx.transaction_entries ?? []
+    );
     return {
       id: tx.id,
       date: tx.date,
       type: tx.type,
-      category: cat?.name ?? (tx.type === "transfer" ? "Transfer" : "—"),
+      category: (tx.categories as { name: string } | null)?.name ?? (tx.type === "transfer" ? "Transfer" : "—"),
       amountLabel,
       account,
       status: tx.status,
     };
   });
 
-  const goalData = await fetchUserGoal(supabase, netWorth);
-  const goal = {
-    name: goalData.name,
-    current: goalData.current,
-    target: goalData.target_amount,
-    targetDate: goalData.target_date,
-  };
+  const negativeNonLoan = accounts.filter(
+    (a) => a.balance_pln < 0 && a.account_type !== "loan"
+  ).length;
+  const archivedInNetWorth = accounts.filter(
+    (a) => a.lifecycle_status === "archived" && a.include_in_net_worth
+  ).length;
 
-  const currentMonth = `${year}-${String(month).padStart(2, "0")}`;
+  const alerts = buildDashboardAlerts({
+    needsReviewCount,
+    accountsNeedsReviewCount,
+    uncategorizedCount: uncategorizedRes.count ?? 0,
+    importErrorRows: importErrorsRes.count ?? 0,
+    failedImports: failedImportsRes.count ?? 0,
+    accounts: allAccounts as AccountManageRow[],
+    instruments,
+    negativeNonLoanAccounts: negativeNonLoan,
+    archivedInNetWorth,
+  });
 
   return {
-    netWorth,
-    currentCashflow,
-    previousCashflow,
+    period,
+    chartRange,
+    asOfDate,
+    kpis,
+    goal: {
+      name: goalData.name,
+      goalType: goalData.goal_type,
+      current: goalData.current,
+      target: goalData.target_amount,
+      targetDate: goalData.target_date,
+      metrics: goalMetrics,
+    },
     cashflowHistory,
     categoryBreakdown,
     categoryTotal,
-    accountBalances: accountBalances
-      .filter((a) => Number(a.balance_pln) !== 0)
-      .sort((a, b) =>
-        a.account_name.localeCompare(b.account_name, "pl", { sensitivity: "base" })
-      )
-      .slice(0, 12),
+    accounts,
     recentTransactions,
-    currencyExposure: buildCurrencySlices(accountBalances),
-    needsReviewCount,
-    goal,
-    investmentsTotal: investmentsData.totalPln,
-    investmentsAllocation: investmentsData.allocation,
-    currentMonth,
+    currencyExposure: computeCurrencyExposure(accountBalances),
+    investments: buildInvestmentsSection(instruments, accountInvestments),
+    alerts,
   };
 }
 
@@ -314,4 +596,18 @@ export function calcTrendPercent(current: number, previous: number): string | un
   if (previous === 0) return undefined;
   const pct = ((current - previous) / Math.abs(previous)) * 100;
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+}
+
+export function formatKpiDelta(delta: number | null, isCurrency = true): string | undefined {
+  if (delta == null || delta === 0) return undefined;
+  if (isCurrency) {
+    const fmt = new Intl.NumberFormat("pl-PL", {
+      style: "currency",
+      currency: "PLN",
+      signDisplay: "exceptZero",
+      maximumFractionDigits: 0,
+    }).format(delta);
+    return `${fmt} vs poprz. okres`;
+  }
+  return `${delta >= 0 ? "+" : ""}${delta.toFixed(1)} p.p. vs poprz. okres`;
 }

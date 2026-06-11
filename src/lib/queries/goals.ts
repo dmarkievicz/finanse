@@ -18,7 +18,8 @@ const DEFAULT_GOAL = {
 
 export async function fetchUserGoal(
   supabase: ServerSupabaseClient,
-  currentNetWorth: number
+  currentNetWorth: number,
+  liquidAssets?: number
 ): Promise<UserGoal> {
   const { data, error } = await supabase
     .from("goals")
@@ -29,29 +30,33 @@ export async function fetchUserGoal(
 
   if (error) throw error;
 
-  if (!data) {
-    return {
-      id: null,
-      ...DEFAULT_GOAL,
-      current: currentNetWorth,
-    };
-  }
-
   const row = data as {
     id: string;
     name: string;
     goal_type: string;
     target_amount: number | null;
     target_date: string | null;
-  };
+  } | null;
+
+  const goalType = row?.goal_type ?? DEFAULT_GOAL.goal_type;
+  const current =
+    goalType === "liquid_assets" && liquidAssets != null ? liquidAssets : currentNetWorth;
+
+  if (!row) {
+    return {
+      id: null,
+      ...DEFAULT_GOAL,
+      current,
+    };
+  }
 
   return {
     id: row.id,
     name: row.name,
-    goal_type: row.goal_type,
+    goal_type: goalType,
     target_amount: Number(row.target_amount ?? DEFAULT_GOAL.target_amount),
     target_date: row.target_date,
-    current: currentNetWorth,
+    current,
   };
 }
 

@@ -98,6 +98,63 @@ export interface BalanceIntegrityRow {
   sample_ids: string[] | null;
 }
 
+export interface CashflowHistoryRow {
+  year: number;
+  month: number;
+  income_pln: number;
+  expense_pln: number;
+  surplus_pln: number;
+  has_data: boolean;
+}
+
+export async function rpcPeriodCashflow(
+  supabase: ServerSupabaseClient,
+  from: string,
+  to: string,
+  mode: BalanceMode = "current"
+): Promise<MonthlyCashflow> {
+  const { data, error } = await supabase.rpc(
+    "get_period_cashflow",
+    { p_from: from, p_to: to, p_mode: mode } as never
+  );
+  if (error) {
+    if (error.code === "PGRST202") {
+      return { income_pln: 0, expense_pln: 0, surplus_pln: 0 };
+    }
+    throw error;
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as MonthlyCashflow | null | undefined;
+  return {
+    income_pln: Number(row?.income_pln ?? 0),
+    expense_pln: Number(row?.expense_pln ?? 0),
+    surplus_pln: Number(row?.surplus_pln ?? 0),
+  };
+}
+
+export async function rpcCashflowHistory(
+  supabase: ServerSupabaseClient,
+  months: number,
+  asOfDate: string,
+  mode: BalanceMode = "current"
+): Promise<CashflowHistoryRow[]> {
+  const { data, error } = await supabase.rpc(
+    "get_cashflow_history",
+    { p_months: months, p_as_of_date: asOfDate, p_mode: mode } as never
+  );
+  if (error) {
+    if (error.code === "PGRST202") return [];
+    throw error;
+  }
+  return ((data ?? []) as CashflowHistoryRow[]).map((r) => ({
+    year: Number(r.year),
+    month: Number(r.month),
+    income_pln: Number(r.income_pln),
+    expense_pln: Number(r.expense_pln),
+    surplus_pln: Number(r.surplus_pln),
+    has_data: Boolean(r.has_data),
+  }));
+}
+
 export async function rpcVerifyBalanceIntegrity(supabase: ServerSupabaseClient, userId?: string) {
   const { data, error } = await supabase.rpc(
     "verify_balance_integrity",
