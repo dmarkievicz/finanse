@@ -24,7 +24,7 @@ interface SidebarProps {
 const primaryNav = [
   { href: "/dashboard", label: "Pulpit", icon: LayoutDashboard },
   { href: "/transactions/new", label: "Dodaj transakcję", icon: Plus, highlight: true },
-  { href: "/transactions", label: "Transakcje", icon: ArrowLeftRight, badgeKey: "review" as const },
+  { href: "/transactions", label: "Transakcje", icon: ArrowLeftRight },
   { href: "/accounts", label: "Konta", icon: Wallet },
   { href: "/categories", label: "Kategorie", icon: Tags },
   { href: "/budgets", label: "Budżety", icon: PiggyBank },
@@ -32,7 +32,7 @@ const primaryNav = [
 ];
 
 const secondaryNav = [
-  { href: "/imports", label: "Import", icon: Upload },
+  { href: "/imports", label: "Import", icon: Upload, badgeKey: "review" as const },
   { href: "/settings", label: "Ustawienia", icon: Settings },
 ];
 
@@ -61,7 +61,7 @@ export function Sidebar({ needsReviewCount = 0 }: SidebarProps) {
         </div>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {primaryNav.map(({ href, label, icon: Icon, badgeKey, highlight }) => {
+        {primaryNav.map(({ href, label, icon: Icon, highlight }) => {
           const active =
             pathname === href ||
             (href === "/transactions/new" && pathname === "/transactions/new") ||
@@ -71,7 +71,6 @@ export function Sidebar({ needsReviewCount = 0 }: SidebarProps) {
             (href === "/categories" && pathname.startsWith("/categories")) ||
             (href === "/accounts" && pathname.startsWith("/accounts")) ||
             (href === "/investments" && pathname.startsWith("/investments"));
-          const badge = badgeKey === "review" ? needsReviewCount : 0;
           return (
             <Link
               key={href}
@@ -87,19 +86,18 @@ export function Sidebar({ needsReviewCount = 0 }: SidebarProps) {
             >
               <Icon className="h-4 w-4" />
               <span className="flex-1">{label}</span>
-              {badge > 0 && (
-                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  {badge > 99 ? "99+" : badge}
-                </span>
-              )}
             </Link>
           );
         })}
 
         <div className="my-3 border-t border-white/10" />
 
-        {secondaryNav.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+        {secondaryNav.map(({ href, label, icon: Icon, badgeKey }) => {
+          const badge = badgeKey === "review" ? needsReviewCount : 0;
+          const active =
+            pathname === href ||
+            pathname.startsWith(`${href}/`) ||
+            (href === "/imports" && pathname === "/transactions/review");
           return (
             <Link
               key={href}
@@ -113,6 +111,11 @@ export function Sidebar({ needsReviewCount = 0 }: SidebarProps) {
             >
               <Icon className="h-4 w-4" />
               <span className="flex-1">{label}</span>
+              {badge > 0 && (
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </Link>
           );
         })}

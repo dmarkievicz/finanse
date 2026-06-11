@@ -78,7 +78,7 @@ export default async function DashboardPage() {
 
       {data.needsReviewCount > 0 && (
         <Link
-          href="/transactions?review=1"
+          href="/transactions/review"
           className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm transition hover:bg-red-100/80"
         >
           <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />

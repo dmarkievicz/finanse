@@ -41,12 +41,17 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   const filterState = {
     type: "all" as const,
-    reviewOnly: false,
+    period: "custom" as const,
     accountId: id,
     accountName: name,
+    view: "list" as const,
+    sort: "date" as const,
+    sortDir: "desc" as const,
+    page,
+    includeReconciled: true,
   };
 
-  const data = await fetchTransactions(supabase, { page, accountId: id });
+  const data = await fetchTransactions(supabase, { filters: filterState });
 
   return (
     <div>

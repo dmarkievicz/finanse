@@ -1,100 +1,68 @@
-import Link from "next/link";
-import { PageHeader } from "@/components/page-header";
-import { TransactionsTable } from "@/components/transactions/transactions-table";
-import { TransactionsFilters } from "@/components/transactions/transactions-filters";
-import { TransactionSearch } from "@/components/transactions/transaction-search";
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { fetchTransactions, fetchCategoryName } from "@/lib/queries/transactions";
+import {
+  fetchTransactions,
+  fetchLookupForFilters,
+  fetchCategoryName,
+  fetchSubcategoryName,
+} from "@/lib/queries/transactions";
 import { fetchAccountName } from "@/lib/queries/accounts";
-import { formatMonthLabel } from "@/lib/format";
-import type { TransactionType } from "@/types/database";
+import {
+  fetchTransactionDailyBreakdown,
+  fetchTransactionSummary,
+} from "@/lib/queries/transaction-summary";
+import { parseTransactionFilters } from "@/lib/transactions/filter-state";
+import { TransactionsView } from "@/components/transactions/transactions-view";
 
 export const dynamic = "force-dynamic";
 
 interface TransactionsPageProps {
-  searchParams: Promise<{
-    page?: string;
-    type?: string;
-    review?: string;
-    account?: string;
-    category?: string;
-    month?: string;
-    q?: string;
-    status?: string;
-  }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
   const params = await searchParams;
-  const page = Number(params.page ?? "1");
-  const type = (params.type ?? "all") as TransactionType | "all";
-  const reviewOnly = params.review === "1";
-  const accountId = params.account;
-  const categoryId = params.category;
-  const month = params.month;
-  const search = params.q;
-  const status = params.status ?? "all";
+  const parsed = parseTransactionFilters(params);
 
   const supabase = await createClient();
-  const [accountName, categoryName] = await Promise.all([
-    accountId ? fetchAccountName(supabase, accountId) : null,
-    categoryId ? fetchCategoryName(supabase, categoryId) : null,
-  ]);
+
+  const [accountName, categoryName, subcategoryName, sourceName, targetName] =
+    await Promise.all([
+      parsed.accountId ? fetchAccountName(supabase, parsed.accountId) : null,
+      parsed.categoryId ? fetchCategoryName(supabase, parsed.categoryId) : null,
+      parsed.subcategoryId ? fetchSubcategoryName(supabase, parsed.subcategoryId) : null,
+      parsed.sourceAccountId ? fetchAccountName(supabase, parsed.sourceAccountId) : null,
+      parsed.targetAccountId ? fetchAccountName(supabase, parsed.targetAccountId) : null,
+    ]);
 
   const filterState = {
-    type,
-    reviewOnly,
-    accountId,
+    ...parsed,
     accountName,
-    categoryId,
     categoryName,
-    month,
-    status,
-    search,
+    subcategoryName,
+    sourceAccountName: sourceName,
+    targetAccountName: targetName,
   };
 
-  const data = await fetchTransactions(supabase, {
-    page,
-    type,
-    reviewOnly,
-    accountId,
-    categoryId,
-    month,
-    search,
-    status: reviewOnly ? undefined : status,
-  });
-
-  const parts = [`${data.total.toLocaleString("pl-PL")} wpisów`];
-  if (month) parts.push(formatMonthLabel(month));
-  if (categoryName) parts.push(`kategoria: ${categoryName}`);
-  if (accountName) parts.push(`konto: ${accountName}`);
+  const [data, summary, dailyBreakdown, lookup] = await Promise.all([
+    fetchTransactions(supabase, { filters: filterState }),
+    fetchTransactionSummary(supabase, filterState),
+    fetchTransactionDailyBreakdown(supabase, filterState),
+    fetchLookupForFilters(supabase),
+  ]);
 
   return (
-    <div>
-      <PageHeader
-        title="Transakcje"
-        description={parts.join(" · ")}
-        action={
-          <Link
-            href="/transactions/new"
-            className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
-          >
-            + Nowa transakcja
-          </Link>
-        }
-      />
-      <Suspense fallback={null}>
-        <TransactionSearch />
-      </Suspense>
-      <TransactionsFilters state={filterState} needsReviewCount={data.needsReviewCount} />
-      <TransactionsTable
-        items={data.items}
-        total={data.total}
-        page={data.page}
-        pageSize={data.pageSize}
-        filterState={filterState}
-      />
-    </div>
+    <TransactionsView
+      items={data.items}
+      total={data.total}
+      page={data.page}
+      pageSize={data.pageSize}
+      filterState={filterState}
+      summary={{
+        ...summary,
+        txCount: summary.txCount || data.total,
+      }}
+      dailyBreakdown={dailyBreakdown}
+      lookup={lookup}
+    />
   );
 }
