@@ -12,6 +12,7 @@ import { DashboardInvestmentsPanel } from "@/components/dashboard/dashboard-inve
 import { DashboardAlertsPanel } from "@/components/dashboard/dashboard-alerts-panel";
 import { DashboardCurrencyPanel } from "@/components/dashboard/dashboard-currency-panel";
 import { DashboardRecentTransactions } from "@/components/dashboard/dashboard-recent-transactions";
+import { DashboardSection } from "@/components/dashboard/dashboard-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -35,75 +36,86 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .map((a) => ({ id: a.id, name: a.name, default_currency: a.default_currency }));
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Pulpit finansowy
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Podsumowanie finansów za {period.label} · waluta bazowa: PLN
-          </p>
-        </div>
-        <DashboardToolbar
-          periodLabel={period.label}
-          periodPreset={period.preset}
-          chartRange={chartRange}
-          dateFrom={period.current.from}
-          dateTo={period.current.to}
-          accounts={activeAccounts}
-          categories={lookup.categories}
-        />
-      </div>
-
-      <DashboardKpiGrid
-        kpis={data.kpis}
-        periodFrom={period.current.from}
-        periodTo={period.current.to}
-      />
-
-      <div className="grid gap-4 xl:grid-cols-12">
-        <div className="xl:col-span-8">
-          <DashboardGoalCard
-            name={data.goal.name}
-            current={data.goal.current}
-            target={data.goal.target}
-            targetDate={data.goal.targetDate}
-            metrics={data.goal.metrics}
+    <div className="-m-2 min-h-full bg-[#f6f7f9] p-2 lg:-m-4 lg:p-4">
+      <div className="mx-auto max-w-[1320px] space-y-6">
+        {/* Nagłówek */}
+        <header className="flex flex-col gap-4 rounded-xl border border-slate-200/90 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+              Pulpit finansowy
+            </h1>
+            <p className="mt-0.5 text-[13px] text-slate-500">
+              {period.label} · PLN
+            </p>
+          </div>
+          <DashboardToolbar
+            periodLabel={period.label}
+            periodPreset={period.preset}
+            chartRange={chartRange}
+            dateFrom={period.current.from}
+            dateTo={period.current.to}
+            accounts={activeAccounts}
+            categories={lookup.categories}
           />
-        </div>
-        <div className="xl:col-span-4">
-          <DashboardAlertsPanel alerts={data.alerts} />
-        </div>
-      </div>
+        </header>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DashboardCashflowChart
-          data={data.cashflowHistory}
-          chartRange={chartRange}
-          periodPreset={period.preset}
-          dateFrom={period.preset === "custom" ? period.current.from : undefined}
-          dateTo={period.preset === "custom" ? period.current.to : undefined}
-        />
-        <DashboardCategoryChart
-          categories={data.categoryBreakdown}
-          total={data.categoryTotal}
+        {/* KPI */}
+        <DashboardKpiGrid
+          kpis={data.kpis}
           periodFrom={period.current.from}
           periodTo={period.current.to}
         />
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-4">
-          <DashboardAccountsPanel accounts={data.accounts} />
-        </div>
-        <div className="lg:col-span-5">
-          <DashboardRecentTransactions transactions={data.recentTransactions} />
-        </div>
-        <div className="lg:col-span-3 space-y-4">
-          <DashboardInvestmentsPanel investments={data.investments} />
-          <DashboardCurrencyPanel exposure={data.currencyExposure} />
-        </div>
+        {/* Cel + alerty */}
+        <DashboardSection title="Cel i jakość danych">
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <DashboardGoalCard
+                name={data.goal.name}
+                current={data.goal.current}
+                target={data.goal.target}
+                targetDate={data.goal.targetDate}
+                metrics={data.goal.metrics}
+              />
+            </div>
+            <DashboardAlertsPanel alerts={data.alerts} />
+          </div>
+        </DashboardSection>
+
+        {/* Wykresy */}
+        <DashboardSection title="Analiza">
+          <div className="grid gap-3 lg:grid-cols-2">
+            <DashboardCashflowChart
+              data={data.cashflowHistory}
+              chartRange={chartRange}
+              periodPreset={period.preset}
+              dateFrom={period.preset === "custom" ? period.current.from : undefined}
+              dateTo={period.preset === "custom" ? period.current.to : undefined}
+            />
+            <DashboardCategoryChart
+              categories={data.categoryBreakdown}
+              total={data.categoryTotal}
+              periodFrom={period.current.from}
+              periodTo={period.current.to}
+            />
+          </div>
+        </DashboardSection>
+
+        {/* Szczegóły */}
+        <DashboardSection title="Szczegóły">
+          <div className="grid gap-3 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <DashboardAccountsPanel accounts={data.accounts} />
+            </div>
+            <div className="lg:col-span-5">
+              <DashboardRecentTransactions transactions={data.recentTransactions} />
+            </div>
+            <div className="space-y-3 lg:col-span-3">
+              <DashboardInvestmentsPanel investments={data.investments} />
+              <DashboardCurrencyPanel exposure={data.currencyExposure} />
+            </div>
+          </div>
+        </DashboardSection>
       </div>
     </div>
   );

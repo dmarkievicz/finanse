@@ -1,67 +1,57 @@
 import Link from "next/link";
-import { AlertCircle, AlertTriangle, Info } from "lucide-react";
 import type { DashboardAlert } from "@/lib/dashboard/alerts";
 import { cn } from "@/lib/utils";
+import { DashboardEmpty, DashboardPanel, DashboardPanelHeader } from "@/components/dashboard/dashboard-ui";
 
 interface DashboardAlertsPanelProps {
   alerts: DashboardAlert[];
 }
 
-const iconBySeverity = {
-  error: AlertCircle,
-  warning: AlertTriangle,
-  info: Info,
-};
-
-const styleBySeverity = {
-  error: "border-red-200 bg-red-50 text-red-900",
-  warning: "border-amber-200 bg-amber-50 text-amber-900",
-  info: "border-sky-200 bg-sky-50 text-sky-900",
+const dotBySeverity = {
+  error: "bg-rose-500",
+  warning: "bg-amber-500",
+  info: "bg-sky-500",
 };
 
 export function DashboardAlertsPanel({ alerts }: DashboardAlertsPanelProps) {
   if (alerts.length === 0) {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
-        <p className="text-sm font-medium text-emerald-800">Dane w porządku</p>
-        <p className="mt-0.5 text-xs text-emerald-700">
-          Brak krytycznych alertów jakości danych.
-        </p>
-      </div>
+      <DashboardPanel className="h-full">
+        <DashboardPanelHeader title="Jakość danych" subtitle="Brak problemów" />
+        <DashboardEmpty>Wszystko wygląda w porządku</DashboardEmpty>
+      </DashboardPanel>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <h3 className="mb-3 text-sm font-semibold text-foreground">Do sprawdzenia</h3>
-      <div className="space-y-2">
-        {alerts.slice(0, 6).map((alert) => {
-          const Icon = iconBySeverity[alert.severity];
-          return (
+    <DashboardPanel className="h-full">
+      <DashboardPanelHeader
+        title="Do sprawdzenia"
+        subtitle={`${alerts.length} ${alerts.length === 1 ? "alert" : "alerty"}`}
+      />
+      <ul className="divide-y divide-slate-100">
+        {alerts.slice(0, 5).map((alert) => (
+          <li key={alert.id}>
             <Link
-              key={alert.id}
               href={alert.href}
-              className={cn(
-                "flex items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition hover:opacity-90",
-                styleBySeverity[alert.severity]
-              )}
+              className="flex items-start gap-3 py-3 first:pt-0 last:pb-0 transition hover:bg-slate-50/80 -mx-2 px-2 rounded-lg"
             >
-              <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-              <div className="min-w-0">
-                <p className="font-medium">
+              <span
+                className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", dotBySeverity[alert.severity])}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-slate-800">
                   {alert.title}
                   {alert.count != null && (
-                    <span className="ml-1.5 rounded-full bg-white/60 px-1.5 py-0.5 text-xs">
-                      {alert.count}
-                    </span>
+                    <span className="ml-1.5 font-normal text-slate-400">({alert.count})</span>
                   )}
                 </p>
-                <p className="mt-0.5 text-xs opacity-90">{alert.description}</p>
+                <p className="mt-0.5 text-[12px] leading-snug text-slate-500">{alert.description}</p>
               </div>
             </Link>
-          );
-        })}
-      </div>
-    </div>
+          </li>
+        ))}
+      </ul>
+    </DashboardPanel>
   );
 }

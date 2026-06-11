@@ -3,18 +3,16 @@ import { ArrowRight } from "lucide-react";
 import type { RecentTransactionRow } from "@/lib/queries/dashboard";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  DashboardEmpty,
+  DashboardPanel,
+  DashboardPanelHeader,
+  dashboardLink,
+} from "@/components/dashboard/dashboard-ui";
 
 interface DashboardRecentTransactionsProps {
   transactions: RecentTransactionRow[];
 }
-
-const typeBadge: Record<string, string> = {
-  income: "bg-emerald-50 text-emerald-700",
-  expense: "bg-red-50 text-red-700",
-  transfer: "bg-sky-50 text-sky-700",
-  exchange: "bg-violet-50 text-violet-700",
-  adjustment: "bg-slate-100 text-slate-700",
-};
 
 const typeLabel: Record<string, string> = {
   income: "Przychód",
@@ -26,66 +24,62 @@ const typeLabel: Record<string, string> = {
 
 export function DashboardRecentTransactions({ transactions }: DashboardRecentTransactionsProps) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-foreground">Ostatnie transakcje</h3>
-          <p className="text-xs text-muted">Bez pozycji wymagających poprawy</p>
-        </div>
-        <Link
-          href="/transactions"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-        >
-          Wszystkie
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </div>
+    <DashboardPanel>
+      <DashboardPanelHeader
+        title="Ostatnie transakcje"
+        subtitle="Potwierdzone"
+        action={
+          <Link href="/transactions" className={`inline-flex items-center gap-1 ${dashboardLink}`}>
+            Wszystkie
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        }
+      />
 
       {transactions.length === 0 ? (
-        <div className="rounded-xl bg-slate-50 py-8 text-center text-sm text-muted">
-          Brak ostatnich transakcji
-        </div>
+        <DashboardEmpty>Brak transakcji</DashboardEmpty>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted">
+              <tr className="border-b border-slate-100 text-left text-[11px] text-slate-400">
                 <th className="pb-2 pr-3 font-medium">Data</th>
                 <th className="pb-2 pr-3 font-medium">Typ</th>
-                <th className="pb-2 pr-3 font-medium">Kategoria</th>
                 <th className="hidden pb-2 pr-3 font-medium sm:table-cell">Konto</th>
                 <th className="pb-2 text-right font-medium">Kwota</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-50">
               {transactions.map((tx) => (
-                <tr key={tx.id} className="border-b border-border/60 last:border-0">
-                  <td className="py-2.5 pr-3">
-                    <Link href={`/transactions/${tx.id}`} className="hover:text-primary">
+                <tr key={tx.id} className="group">
+                  <td className="py-2.5 pr-3 text-[13px] text-slate-600">
+                    <Link
+                      href={`/transactions/${tx.id}`}
+                      className="hover:text-slate-900"
+                    >
                       {formatDate(tx.date)}
                     </Link>
                   </td>
-                  <td className="py-2.5 pr-3">
-                    <span
-                      className={cn(
-                        "rounded-md px-1.5 py-0.5 text-[11px] font-medium",
-                        typeBadge[tx.type] ?? "bg-slate-100"
-                      )}
-                    >
-                      {typeLabel[tx.type] ?? tx.type}
-                    </span>
+                  <td className="py-2.5 pr-3 text-[12px] text-slate-500">
+                    {typeLabel[tx.type] ?? tx.type}
                   </td>
-                  <td className="max-w-[120px] truncate py-2.5 pr-3 text-muted">{tx.category}</td>
-                  <td className="hidden max-w-[140px] truncate py-2.5 pr-3 text-muted sm:table-cell">
+                  <td className="hidden max-w-[140px] truncate py-2.5 pr-3 text-[12px] text-slate-400 sm:table-cell">
                     {tx.account}
                   </td>
-                  <td className="py-2.5 text-right font-medium tabular-nums">{tx.amountLabel}</td>
+                  <td
+                    className={cn(
+                      "py-2.5 text-right text-[13px] font-medium tabular-nums",
+                      tx.type === "income" ? "text-emerald-600" : "text-slate-800"
+                    )}
+                  >
+                    {tx.amountLabel}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+    </DashboardPanel>
   );
 }

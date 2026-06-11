@@ -118,12 +118,12 @@ export interface DashboardData {
 }
 
 const CATEGORY_COLORS = [
-  "#1e3a5f",
-  "#0d9488",
-  "#3b82f6",
-  "#8b5cf6",
-  "#f59e0b",
   "#94a3b8",
+  "#6ee7b7",
+  "#93c5fd",
+  "#c4b5fd",
+  "#fcd34d",
+  "#fda4af",
 ];
 
 const LIQUID_TYPES = new Set(["bank", "cash"]);

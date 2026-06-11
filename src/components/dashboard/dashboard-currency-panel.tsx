@@ -1,5 +1,6 @@
 import type { CurrencyExposureResult } from "@/lib/dashboard/currency-exposure";
 import { formatPln } from "@/lib/format";
+import { DashboardEmpty, DashboardPanel, DashboardPanelHeader } from "@/components/dashboard/dashboard-ui";
 
 interface DashboardCurrencyPanelProps {
   exposure: CurrencyExposureResult;
@@ -7,53 +8,36 @@ interface DashboardCurrencyPanelProps {
 
 export function DashboardCurrencyPanel({ exposure }: DashboardCurrencyPanelProps) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <h3 className="font-semibold text-foreground">Ekspozycja walutowa</h3>
-      <p className="text-xs text-muted">Udział aktywów według waluty (tylko salda dodatnie)</p>
+    <DashboardPanel>
+      <DashboardPanelHeader title="Waluty" subtitle="Udział aktywów (tylko dodatnie)" />
 
       {!exposure.isValid && exposure.rows.length === 0 ? (
-        <div className="mt-4 rounded-xl bg-slate-50 px-3 py-6 text-center text-sm text-muted">
-          {exposure.warning ?? "Brak danych do wyświetlenia udziałów walut."}
-        </div>
+        <DashboardEmpty>{exposure.warning ?? "Brak danych"}</DashboardEmpty>
       ) : (
-        <>
+        <div className="space-y-3">
           {exposure.warning && (
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              {exposure.warning}
-            </p>
+            <p className="text-[12px] text-amber-600">{exposure.warning}</p>
           )}
-          <div className="mt-4 space-y-3">
-            {exposure.rows
-              .filter((r) => r.assetsPln > 0)
-              .map((r) => (
-                <div key={r.code}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="font-medium">{r.code}</span>
-                    <span className="tabular-nums text-muted">
-                      {formatPln(r.assetsPln)} · {r.sharePct}%
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${r.sharePct}%`, backgroundColor: r.color }}
-                    />
-                  </div>
-                  {r.liabilitiesPln > 0 && (
-                    <p className="mt-0.5 text-[11px] text-red-600">
-                      Zobowiązania: {formatPln(r.liabilitiesPln)}
-                    </p>
-                  )}
+          {exposure.rows
+            .filter((r) => r.assetsPln > 0)
+            .map((r) => (
+              <div key={r.code}>
+                <div className="mb-1 flex justify-between text-[12px]">
+                  <span className="font-medium text-slate-700">{r.code}</span>
+                  <span className="tabular-nums text-slate-500">
+                    {formatPln(r.assetsPln)} · {r.sharePct}%
+                  </span>
                 </div>
-              ))}
-          </div>
-          {exposure.totalLiabilities > 0 && (
-            <p className="mt-3 text-xs text-muted">
-              Łączne zobowiązania: {formatPln(exposure.totalLiabilities)}
-            </p>
-          )}
-        </>
+                <div className="h-1 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full opacity-70"
+                    style={{ width: `${r.sharePct}%`, backgroundColor: r.color }}
+                  />
+                </div>
+              </div>
+            ))}
+        </div>
       )}
-    </div>
+    </DashboardPanel>
   );
 }

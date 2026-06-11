@@ -30,103 +30,100 @@ interface KpiItem {
   href?: string;
 }
 
-export function DashboardKpiGrid({
-  kpis,
-  periodFrom,
-  periodTo,
-}: DashboardKpiGridProps) {
+export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGridProps) {
   const items: KpiItem[] = [
     {
       label: "Majątek netto",
       value: formatPln(kpis.netWorth),
-      sub: "Aktywa minus zobowiązania",
+      sub: "Aktywa − zobowiązania",
       delta: formatKpiDelta(kpis.netWorthChange),
       positive: (kpis.netWorthChange ?? 0) >= 0,
       icon: Wallet,
-      accent: "text-primary bg-primary/10",
+      accent: "border-l-slate-400",
       href: "/accounts",
     },
     {
       label: "Aktywa płynne",
       value: formatPln(kpis.liquidAssets),
-      sub: "Gotówka i konta bankowe",
+      sub: "Gotówka i bank",
       delta: formatKpiDelta(kpis.liquidAssetsChange),
       positive: (kpis.liquidAssetsChange ?? 0) >= 0,
       icon: Droplets,
-      accent: "text-sky-700 bg-sky-50",
+      accent: "border-l-sky-300",
       href: "/accounts?type=bank",
     },
     {
       label: "Przychody",
       value: formatPln(kpis.income),
-      sub: "Bez transferów wewnętrznych",
+      sub: "W okresie",
       delta: formatKpiDelta(kpis.incomeChange),
       positive: (kpis.incomeChange ?? 0) >= 0,
       icon: TrendingUp,
-      accent: "text-emerald-700 bg-emerald-50",
+      accent: "border-l-emerald-300",
       href: `/transactions?type=income&period=custom&from=${periodFrom}&to=${periodTo}`,
     },
     {
       label: "Wydatki",
       value: formatPln(kpis.expenses),
-      sub: "Wydatki konsumpcyjne",
+      sub: "W okresie",
       delta: formatKpiDelta(kpis.expensesChange),
       positive: (kpis.expensesChange ?? 0) <= 0,
       icon: TrendingDown,
-      accent: "text-red-700 bg-red-50",
+      accent: "border-l-rose-300",
       href: `/transactions?type=expense&period=custom&from=${periodFrom}&to=${periodTo}`,
     },
     {
-      label: "Nadwyżka / deficyt",
+      label: "Nadwyżka",
       value: formatPln(kpis.surplus),
-      sub: "Przychody minus wydatki",
+      sub: "Przychody − wydatki",
       delta: formatKpiDelta(kpis.surplusChange),
       positive: (kpis.surplusChange ?? 0) >= 0,
       icon: Scale,
-      accent: kpis.surplus >= 0 ? "text-emerald-700 bg-emerald-50" : "text-red-700 bg-red-50",
+      accent: kpis.surplus >= 0 ? "border-l-emerald-300" : "border-l-rose-300",
       href: `/transactions?period=custom&from=${periodFrom}&to=${periodTo}`,
     },
     {
-      label: "Stopa oszczędności",
+      label: "Oszczędności",
       value: formatPercent(kpis.savingsRate),
       sub: "Nadwyżka / przychody",
       delta: formatKpiDelta(kpis.savingsRateChange, false),
       positive: (kpis.savingsRateChange ?? 0) >= 0,
       icon: PiggyBank,
-      accent: "text-amber-700 bg-amber-50",
+      accent: "border-l-amber-300",
     },
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => {
         const card = (
           <div
             className={cn(
-              "group h-full rounded-xl border border-border bg-card p-4 shadow-sm transition",
-              item.href && "hover:border-primary/30 hover:shadow-md"
+              "group flex h-full flex-col border-l-[3px] rounded-xl border border-slate-200/90 bg-white px-4 py-4 transition",
+              item.accent,
+              item.href && "hover:border-slate-300 hover:shadow-sm"
             )}
           >
-            <div className="flex items-start justify-between gap-2">
-              <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", item.accent)}>
-                <item.icon className="h-4 w-4" />
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-slate-500">
+                <item.icon className="h-4 w-4 stroke-[1.5]" />
+                <span className="text-[13px] font-medium text-slate-600">{item.label}</span>
               </div>
               {item.delta && (
                 <span
                   className={cn(
-                    "text-right text-[11px] font-medium leading-tight",
-                    item.positive ? "text-emerald-600" : "text-red-600"
+                    "text-[11px] font-medium tabular-nums",
+                    item.positive ? "text-emerald-600" : "text-rose-600"
                   )}
                 >
-                  {item.delta}
+                  {item.delta.replace(" vs poprz. okres", "")}
                 </span>
               )}
             </div>
-            <p className="mt-3 text-xs font-medium text-muted">{item.label}</p>
-            <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight text-foreground">
+            <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
               {item.value}
             </p>
-            <p className="mt-0.5 text-[11px] text-muted">{item.sub}</p>
+            <p className="mt-0.5 text-[12px] text-slate-400">{item.sub}</p>
           </div>
         );
 
