@@ -24,6 +24,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nieznana akcja" }, { status: 400 });
     }
 
+    if (action === "confirm") {
+      const { data: txs, error: loadErr } = await supabase
+        .from("transactions")
+        .select("id, transaction_entries(id)")
+        .eq("user_id", user.id)
+        .in("id", ids)
+        .eq("status", "needs_review");
+
+      if (loadErr) throw loadErr;
+
+      const withoutEntries = (txs ?? []).filter(
+        (t) => !(t as { transaction_entries: { id: string }[] }).transaction_entries?.length
+      );
+
+      if (withoutEntries.length > 0) {
+        return NextResponse.json(
+          {
+            error: `${withoutEntries.length} transakcji nie ma wpisów księgowych — najpierw uzupełnij konta i utwórz wpisy`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const newStatus = action === "skip" ? "reconciled" : "confirmed";
 
     const { data, error } = await supabase

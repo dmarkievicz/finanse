@@ -26,6 +26,7 @@ export interface TransactionDetail {
   is_opening_balance: boolean;
   entries: TransactionEntryDetail[];
   import_raw: Record<string, unknown> | null;
+  import_validation_errors: { code?: string; message?: string }[] | null;
 }
 
 export async function fetchTransactionDetail(
@@ -74,13 +75,19 @@ export async function fetchTransactionDetail(
   const tx = data as Row;
 
   let import_raw: Record<string, unknown> | null = null;
+  let import_validation_errors: { code?: string; message?: string }[] | null = null;
   if (tx.import_id) {
     const { data: importRow } = await supabase
       .from("import_rows")
-      .select("raw_data")
+      .select("raw_data, validation_errors")
       .eq("transaction_id", tx.id)
       .maybeSingle();
-    import_raw = (importRow as { raw_data: Record<string, unknown> } | null)?.raw_data ?? null;
+    const row = importRow as {
+      raw_data: Record<string, unknown>;
+      validation_errors: { code?: string; message?: string }[] | null;
+    } | null;
+    import_raw = row?.raw_data ?? null;
+    import_validation_errors = row?.validation_errors ?? null;
   }
 
   return {
@@ -106,6 +113,7 @@ export async function fetchTransactionDetail(
       amount_pln: Number(e.amount_pln),
     })),
     import_raw,
+    import_validation_errors,
   };
 }
 

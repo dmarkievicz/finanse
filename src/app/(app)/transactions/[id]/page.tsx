@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { TransactionEditForm } from "@/components/transactions/transaction-edit-form";
 import { TransactionEntriesEditor } from "@/components/transactions/transaction-entries-editor";
+import { ReviewEntryPanel } from "@/components/transactions/review-entry-panel";
+import type { TransactionListItem } from "@/lib/queries/transactions";
+import { hintFromImportRaw, formatPendingAccountLabel } from "@/lib/import/parse-raw-row";
 import { createClient } from "@/lib/supabase/server";
 import { fetchTransactionDetail, fetchLookupData } from "@/lib/queries/transaction-detail";
 import { fetchAuditForTransaction } from "@/lib/queries/audit";
@@ -22,14 +25,40 @@ export default async function TransactionDetailPage({ params }: Props) {
   const transaction = await fetchTransactionDetail(supabase, id);
   if (!transaction) notFound();
 
-  const [lookup, auditRows] = await Promise.all([
-    fetchLookupData(supabase),
-    fetchAuditForTransaction(
-      supabase,
-      id,
-      transaction.entries.map((e) => e.id)
-    ),
-  ]);
+  const lookup = await fetchLookupData(supabase);
+  const entryAccounts = lookup.accounts;
+
+  const auditRows = await fetchAuditForTransaction(
+    supabase,
+    id,
+    transaction.entries.map((e) => e.id)
+  );
+
+  const hint = transaction.import_raw
+    ? hintFromImportRaw(transaction.import_raw, transaction.import_validation_errors)
+    : null;
+  const reviewListItem: TransactionListItem | null =
+    transaction.status === "needs_review" && transaction.entries.length === 0
+      ? {
+          id: transaction.id,
+          date: transaction.date,
+          type: transaction.type,
+          status: transaction.status,
+          category: transaction.category_name,
+          subcategory: transaction.subcategory_name,
+          details: transaction.details,
+          amountPln: null,
+          accountLabel: hint ? formatPendingAccountLabel(transaction.type, hint) : "—",
+          pendingAmountPln: hint?.amountPln ?? null,
+          pendingAmount: hint?.amount ?? null,
+          pendingCurrency: hint?.currency ?? null,
+          pendingExchangeRate: hint?.exchangeRate ?? null,
+          pendingSourceAccount: hint?.sourceAccount || null,
+          pendingTargetAccount: hint?.targetAccount || null,
+          pendingAccountLabel: hint ? formatPendingAccountLabel(transaction.type, hint) : null,
+          reviewMessage: hint?.reviewMessage ?? null,
+        }
+      : null;
 
   return (
     <div>
@@ -74,10 +103,11 @@ export default async function TransactionDetailPage({ params }: Props) {
         )}
       </div>
 
-      <TransactionEntriesEditor
-        transaction={transaction}
-        accounts={lookup.accounts.filter((a) => a.lifecycle_status === "active")}
-      />
+      {reviewListItem ? (
+        <ReviewEntryPanel item={reviewListItem} accounts={entryAccounts} />
+      ) : (
+        <TransactionEntriesEditor transaction={transaction} accounts={entryAccounts} />
+      )}
       <div className="mt-6">
         <TransactionEditForm transaction={transaction} categories={lookup.categories} />
       </div>

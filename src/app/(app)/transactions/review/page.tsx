@@ -30,7 +30,11 @@ export default async function TransactionsReviewPage() {
         Wszystkie transakcje
       </Link>
 
-      <ReviewQueue items={data.items} categories={lookup.categories} />
+      <ReviewQueue
+        items={data.items}
+        categories={lookup.categories}
+        accounts={lookup.accounts}
+      />
     </div>
   );
 }

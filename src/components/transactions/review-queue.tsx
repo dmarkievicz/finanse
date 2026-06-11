@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Archive, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import type { TransactionListItem } from "@/lib/queries/transactions";
 import { formatDate, formatPlnSigned } from "@/lib/format";
+import {
+  ReviewEntryPanel,
+  needsReviewEntryForm,
+} from "@/components/transactions/review-entry-panel";
 
 interface ReviewQueueProps {
   items: TransactionListItem[];
   categories: { id: string; name: string }[];
+  accounts: { id: string; name: string; default_currency: string }[];
 }
 
-export function ReviewQueue({ items, categories }: ReviewQueueProps) {
+export function ReviewQueue({ items, categories, accounts }: ReviewQueueProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [categoryEdits, setCategoryEdits] = useState<Record<string, string>>({});
@@ -37,33 +42,34 @@ export function ReviewQueue({ items, categories }: ReviewQueueProps) {
     });
   }
 
+  function refresh() {
+    router.refresh();
+  }
+
   async function confirmOne(id: string) {
+    const item = items.find((t) => t.id === id);
+    if (item && needsReviewEntryForm(item)) {
+      setError("Najpierw uzupełnij konta i utwórz wpisy księgowe (formularz poniżej wiersza)");
+      return;
+    }
+
     setLoading(id);
     setError(null);
     try {
       const catId = categoryEdits[id];
-      if (catId) {
-        const patchRes = await fetch(`/api/transactions/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ category_id: catId || null, status: "confirmed" }),
-        });
-        if (!patchRes.ok) {
-          const d = await patchRes.json();
-          throw new Error(d.error ?? "Błąd");
-        }
-      } else {
-        const res = await fetch(`/api/transactions/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "confirmed" }),
-        });
-        if (!res.ok) {
-          const d = await res.json();
-          throw new Error(d.error ?? "Błąd");
-        }
+      const res = await fetch(`/api/transactions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category_id: catId || undefined,
+          status: "confirmed",
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Błąd");
       }
-      router.refresh();
+      refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Błąd");
     } finally {
@@ -73,6 +79,16 @@ export function ReviewQueue({ items, categories }: ReviewQueueProps) {
 
   async function batchAction(action: "confirm" | "skip") {
     if (!selected.size) return;
+
+    const selectedItems = items.filter((t) => selected.has(t.id));
+    const needsEntries = selectedItems.filter(needsReviewEntryForm);
+
+    if (action === "confirm" && needsEntries.length > 0) {
+      setError(
+        `${needsEntries.length} zaznaczonych pozycji nie ma wpisów — rozwiń wiersz, uzupełnij konta i kliknij „Zapisz wpisy”`
+      );
+      return;
+    }
 
     if (
       action === "skip" &&
@@ -107,7 +123,7 @@ export function ReviewQueue({ items, categories }: ReviewQueueProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Błąd");
       setSelected(new Set());
-      router.refresh();
+      refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Błąd");
     } finally {
@@ -126,7 +142,7 @@ export function ReviewQueue({ items, categories }: ReviewQueueProps) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Błąd");
-      router.refresh();
+      refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Błąd");
     } finally {
@@ -147,9 +163,9 @@ export function ReviewQueue({ items, categories }: ReviewQueueProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        Zaznacz transakcje archiwalne (np. bez konta źródłowego/docelowego) i użyj{" "}
-        <strong>Nie poprawiaj</strong> — znikną z tej listy bez zmiany danych. Użyj{" "}
-        <strong>Potwierdź</strong>, gdy ręcznie poprawisz kategorię lub dane.
+        Zaznacz wiersz z niekompletnym transferem — pojawi się formularz: uzupełnij brakujące konto,
+        zaznacz <strong>Utwórz wpisy księgowe</strong> i zapisz. Dopiero potem możesz potwierdzić.
+        Archiwalne pozycje oznacz <strong>Nie poprawiaj</strong>.
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -177,7 +193,7 @@ export function ReviewQueue({ items, categories }: ReviewQueueProps) {
           ) : (
             <Archive className="h-4 w-4" />
           )}
-          Nie poprawiaj — zostaw jak jest ({selected.size})
+          Nie poprawiaj ({selected.size})
         </button>
       </div>
 
@@ -197,6 +213,7 @@ export function ReviewQueue({ items, categories }: ReviewQueueProps) {
                   />
                 </th>
                 <th className="px-4 py-3 font-medium">Data</th>
+                <th className="px-4 py-3 font-medium">Typ</th>
                 <th className="px-4 py-3 font-medium">Konto</th>
                 <th className="px-4 py-3 font-medium">Szczegóły</th>
                 <th className="px-4 py-3 font-medium">Kategoria</th>
@@ -205,70 +222,106 @@ export function ReviewQueue({ items, categories }: ReviewQueueProps) {
               </tr>
             </thead>
             <tbody>
-              {items.map((t) => (
-                <tr key={t.id} className="border-b border-border/60 bg-red-50/30 last:border-0">
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(t.id)}
-                      onChange={() => toggle(t.id)}
-                    />
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">{formatDate(t.date)}</td>
-                  <td className="px-4 py-3 text-muted">{t.accountLabel}</td>
-                  <td className="max-w-[180px] truncate px-4 py-3" title={t.details ?? ""}>
-                    {t.details || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={categoryEdits[t.id] ?? ""}
-                      onChange={(e) =>
-                        setCategoryEdits((prev) => ({ ...prev, [t.id]: e.target.value }))
-                      }
-                      className="max-w-[160px] rounded border border-border px-2 py-1 text-xs"
+              {items.map((t) => {
+                const isSelected = selected.has(t.id);
+                const showForm = isSelected && needsReviewEntryForm(t);
+                const displayAmount = t.amountPln ?? t.pendingAmountPln;
+                const account =
+                  t.accountLabel !== "—" ? t.accountLabel : (t.pendingAccountLabel ?? "—");
+
+                return (
+                  <Fragment key={t.id}>
+                    <tr
+                      className={`border-b border-border/60 last:border-0 ${isSelected ? "bg-amber-50/40" : "bg-red-50/30"}`}
                     >
-                      <option value="">{t.category ?? "— wybierz —"}</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium">
-                    {formatPlnSigned(t.amountPln)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={loading !== null}
-                        onClick={() => confirmOne(t.id)}
-                        className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
-                        title="Potwierdź po poprawce"
-                      >
-                        {loading === t.id ? "…" : "OK"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={loading !== null}
-                        onClick={() => skipOne(t.id)}
-                        className="text-xs font-medium text-slate-600 hover:underline disabled:opacity-50"
-                        title="Nie poprawiaj — zostaw w historii"
-                      >
-                        Pomiń
-                      </button>
-                      <Link
-                        href={`/transactions/${t.id}`}
-                        className="text-muted hover:text-foreground"
-                        title="Szczegóły"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggle(t.id)}
+                        />
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">{formatDate(t.date)}</td>
+                      <td className="px-4 py-3 capitalize text-muted">{t.type}</td>
+                      <td className="px-4 py-3 text-muted">{account}</td>
+                      <td className="max-w-[180px] truncate px-4 py-3" title={t.details ?? ""}>
+                        {t.details || t.reviewMessage || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {t.type !== "transfer" ? (
+                          <select
+                            value={categoryEdits[t.id] ?? ""}
+                            onChange={(e) =>
+                              setCategoryEdits((prev) => ({ ...prev, [t.id]: e.target.value }))
+                            }
+                            className="max-w-[160px] rounded border border-border px-2 py-1 text-xs"
+                          >
+                            <option value="">{t.category ?? "— wybierz —"}</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium">
+                        {formatPlnSigned(displayAmount)}
+                        {t.amountPln == null && t.pendingAmountPln != null && (
+                          <span className="ml-1 text-[10px] text-amber-600">excel</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={loading !== null}
+                            onClick={() => confirmOne(t.id)}
+                            className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+                          >
+                            {loading === t.id ? "…" : "OK"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={loading !== null}
+                            onClick={() => skipOne(t.id)}
+                            className="text-xs font-medium text-slate-600 hover:underline disabled:opacity-50"
+                          >
+                            Pomiń
+                          </button>
+                          <Link
+                            href={`/transactions/${t.id}`}
+                            className="text-muted hover:text-foreground"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                    {showForm && (
+                      <tr key={`${t.id}-form`} className="border-b border-border/60 bg-amber-50/20">
+                        <td colSpan={8} className="px-4 py-3">
+                          <ReviewEntryPanel
+                            item={t}
+                            accounts={accounts}
+                            compact
+                            onSuccess={() => {
+                              setSelected((prev) => {
+                                const next = new Set(prev);
+                                next.delete(t.id);
+                                return next;
+                              });
+                              refresh();
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -58,10 +58,14 @@ export function TransactionsTable({
                 const cfg = typeConfig[t.type] ?? typeConfig.adjustment;
                 const Icon = cfg.icon;
                 const isReview = t.status === "needs_review";
+                const displayAmount = t.amountPln ?? t.pendingAmountPln;
+                const amountPending = t.amountPln == null && t.pendingAmountPln != null;
                 const amount =
-                  t.type === "transfer" && t.amountPln != null
-                    ? formatPlnSigned(t.amountPln).replace("+", "")
-                    : formatPlnSigned(t.amountPln);
+                  t.type === "transfer" && displayAmount != null
+                    ? formatPlnSigned(displayAmount).replace("+", "")
+                    : formatPlnSigned(displayAmount);
+                const account =
+                  t.accountLabel !== "—" ? t.accountLabel : (t.pendingAccountLabel ?? "—");
 
                 return (
                   <tr
@@ -92,20 +96,24 @@ export function TransactionsTable({
                         <span className="block text-xs text-muted">{t.subcategory}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted">{t.accountLabel}</td>
+                    <td className="px-4 py-3 text-muted">{account}</td>
                     <td className="max-w-[200px] truncate px-4 py-3 text-muted" title={t.details ?? ""}>
-                      {t.details || "—"}
+                      {t.details || t.reviewMessage || "—"}
                     </td>
                     <td
                       className={`whitespace-nowrap px-4 py-3 text-right font-medium ${
-                        t.type === "income"
+                        amountPending ? "text-amber-700" : t.type === "income"
                           ? "text-emerald-600"
                           : t.type === "expense"
                             ? "text-red-600"
                             : "text-foreground"
                       }`}
+                      title={amountPending ? "Kwota z Excela — brak wpisu księgowego do poprawy" : undefined}
                     >
                       {amount}
+                      {amountPending && (
+                        <span className="ml-1 text-[10px] font-normal text-amber-600">excel</span>
+                      )}
                     </td>
                   </tr>
                 );

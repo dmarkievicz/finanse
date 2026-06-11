@@ -2,6 +2,10 @@ import type { TransactionStatus, TransactionType } from "@/types/database";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { rpcNeedsReviewCount } from "@/lib/supabase/rpc";
 import { monthRange } from "@/lib/format";
+import {
+  formatPendingAccountLabel,
+  hintFromImportRaw,
+} from "@/lib/import/parse-raw-row";
 
 export interface TransactionListItem {
   id: string;
@@ -13,6 +17,15 @@ export interface TransactionListItem {
   details: string | null;
   amountPln: number | null;
   accountLabel: string;
+  /** Kwota z Excela gdy brak wpisów księgowych (needs_review). */
+  pendingAmountPln?: number | null;
+  pendingAmount?: number | null;
+  pendingCurrency?: string | null;
+  pendingExchangeRate?: number | null;
+  pendingSourceAccount?: string | null;
+  pendingTargetAccount?: string | null;
+  pendingAccountLabel?: string | null;
+  reviewMessage?: string | null;
 }
 
 export interface TransactionsPageData {
@@ -130,11 +143,40 @@ export async function fetchTransactions(
     transaction_entries: { amount_pln: number; accounts: { name: string } | null }[];
   };
 
-  const items: TransactionListItem[] = ((listRes.data ?? []) as TxRow[]).map((tx) => {
+  const rows = (listRes.data ?? []) as TxRow[];
+  const needsHintIds = rows
+    .filter((tx) => tx.status === "needs_review" && !(tx.transaction_entries?.length))
+    .map((tx) => tx.id);
+
+  const hintByTxId = new Map<
+    string,
+    ReturnType<typeof hintFromImportRaw>
+  >();
+
+  if (needsHintIds.length > 0) {
+    const { data: importRows } = await supabase
+      .from("import_rows")
+      .select("transaction_id, raw_data, validation_errors")
+      .in("transaction_id", needsHintIds);
+
+    for (const row of importRows ?? []) {
+      const rid = (row as { transaction_id: string }).transaction_id;
+      hintByTxId.set(
+        rid,
+        hintFromImportRaw(
+          (row as { raw_data: Record<string, unknown> }).raw_data,
+          (row as { validation_errors: { message?: string }[] | null }).validation_errors
+        )
+      );
+    }
+  }
+
+  const items: TransactionListItem[] = rows.map((tx) => {
     const entries = tx.transaction_entries ?? [];
     const { amountPln, accountLabel } = formatAccountLabel(tx.type, entries);
     const cat = tx.categories as { name: string } | null;
     const sub = tx.subcategories as { name: string } | null;
+    const hint = hintByTxId.get(tx.id);
 
     return {
       id: tx.id,
@@ -146,6 +188,14 @@ export async function fetchTransactions(
       details: tx.details,
       amountPln,
       accountLabel,
+      pendingAmountPln: hint?.amountPln ?? null,
+      pendingAmount: hint?.amount ?? null,
+      pendingCurrency: hint?.currency ?? null,
+      pendingExchangeRate: hint?.exchangeRate ?? null,
+      pendingSourceAccount: hint?.sourceAccount || null,
+      pendingTargetAccount: hint?.targetAccount || null,
+      pendingAccountLabel: hint ? formatPendingAccountLabel(tx.type, hint) : null,
+      reviewMessage: hint?.reviewMessage ?? null,
     };
   });
 
