@@ -11,6 +11,8 @@ import {
   Wallet,
 } from "lucide-react";
 import type { AccountType } from "@/types/database";
+import { BankFavicon } from "@/components/accounts/bank-favicon";
+import { resolveInstitution } from "@/lib/accounts/bank-domains";
 import { cn } from "@/lib/utils";
 
 interface AccountCardAvatarProps {
@@ -42,8 +44,9 @@ export function AccountCardAvatar({
   const [url, setUrl] = useState<string | null>(photoUrl ?? null);
   const [loading, setLoading] = useState(hasPhoto && !photoUrl);
 
-  const dim = size === "sm" ? "h-9 w-14" : "h-11 w-[4.5rem]";
+  const dim = size === "sm" ? "h-9 w-9" : "h-11 w-11";
   const Icon = typeIcon[accountType] ?? Landmark;
+  const institution = resolveInstitution(accountName);
 
   useEffect(() => {
     if (photoUrl) {
@@ -78,26 +81,26 @@ export function AccountCardAvatar({
   return (
     <div
       className={cn(
-        "relative shrink-0 overflow-hidden rounded-lg ring-1 ring-black/5",
-        accountType === "credit_card" ? "bg-gradient-to-br from-orange-100 to-amber-50" : "bg-slate-100",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ring-black/5",
+        accountType === "credit_card"
+          ? "bg-gradient-to-br from-orange-100 to-amber-50"
+          : "bg-slate-50",
         dim
       )}
     >
       {loading ? (
-        <div className="flex h-full items-center justify-center">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
-        </div>
+        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
       ) : url ? (
         <Image src={url} alt={accountName} fill className="object-cover" unoptimized />
+      ) : institution ? (
+        <BankFavicon accountName={accountName} size={size === "sm" ? 20 : 24} />
       ) : (
-        <div
+        <Icon
           className={cn(
-            "flex h-full items-center justify-center",
+            size === "sm" ? "h-4 w-4" : "h-5 w-5",
             accountType === "credit_card" ? "text-orange-500" : "text-slate-400"
           )}
-        >
-          <Icon className={size === "sm" ? "h-4 w-4" : "h-5 w-5"} />
-        </div>
+        />
       )}
     </div>
   );
