@@ -14,6 +14,7 @@ import {
   type TransactionFilterState,
 } from "@/lib/transactions/filter-state";
 import { formatDate, formatPln, formatPlnSigned } from "@/lib/format";
+import { accumulateFlows } from "@/lib/transactions/cashflow-amounts";
 import { cn } from "@/lib/utils";
 
 interface TransactionsTableProps {
@@ -41,6 +42,7 @@ interface DayGroup {
   items: TransactionListItem[];
   income: number;
   expense: number;
+  net: number;
 }
 
 function groupItemsByDay(items: TransactionListItem[]): DayGroup[] {
@@ -53,14 +55,8 @@ function groupItemsByDay(items: TransactionListItem[]): DayGroup[] {
   return [...map.entries()]
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([date, dayItems]) => {
-      let income = 0;
-      let expense = 0;
-      for (const t of dayItems) {
-        const amt = t.amountPln ?? t.pendingAmountPln ?? 0;
-        if (t.type === "income") income += Math.abs(amt);
-        else if (t.type === "expense") expense += Math.abs(amt);
-      }
-      return { date, items: dayItems, income, expense };
+      const { income, expense, net } = accumulateFlows(dayItems);
+      return { date, items: dayItems, income, expense, net };
     });
 }
 
@@ -78,6 +74,14 @@ function TransactionRow({
   const originalAmount = t.originalAmount ?? (t.pendingAmount != null ? Math.abs(t.pendingAmount) : null);
   const currency = t.currency ?? t.pendingCurrency ?? "PLN";
   const rate = t.exchangeRate ?? t.pendingExchangeRate ?? 1;
+
+  const isInflow =
+    displayAmount != null &&
+    (t.type === "income"
+      ? displayAmount > 0
+      : t.type === "expense"
+        ? displayAmount > 0
+        : false);
 
   const amountDisplay =
     t.type === "transfer" && displayAmount != null
@@ -135,9 +139,9 @@ function TransactionRow({
           "whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums sm:px-4",
           amountPending
             ? "text-amber-700"
-            : t.type === "income"
+            : isInflow
               ? "text-emerald-600"
-              : t.type === "expense"
+              : t.type === "income" || t.type === "expense"
                 ? "text-red-600"
                 : "text-foreground"
         )}
@@ -181,9 +185,9 @@ function MobileCard({ t, onSelect }: { t: TransactionListItem; onSelect?: (id: s
       <p
         className={cn(
           "text-lg font-bold tabular-nums",
-          t.type === "income"
+          displayAmount != null && displayAmount > 0
             ? "text-emerald-600"
-            : t.type === "expense"
+            : t.type === "income" || t.type === "expense"
               ? "text-red-600"
               : "text-foreground"
         )}
@@ -267,21 +271,21 @@ export function TransactionsTable({
                         </span>
                         <div className="flex flex-wrap gap-3 text-xs text-muted">
                           <span className="text-emerald-700">
-                            +{formatPln(g.income)}
+                            przychody {formatPlnSigned(g.income)}
                           </span>
-                          <span className="text-red-700">−{formatPln(g.expense)}</span>
+                          <span className="text-red-700">
+                            wydatki {formatPln(g.expense)}
+                          </span>
                           <span>
                             {g.items.length}{" "}
                             {g.items.length === 1 ? "transakcja" : "transakcji"}
                           </span>
                           <span
                             className={
-                              g.income - g.expense >= 0
-                                ? "text-emerald-700"
-                                : "text-red-700"
+                              g.net >= 0 ? "text-emerald-700" : "text-red-700"
                             }
                           >
-                            saldo {formatPln(g.income - g.expense)}
+                            saldo {formatPlnSigned(g.net)}
                           </span>
                         </div>
                       </div>

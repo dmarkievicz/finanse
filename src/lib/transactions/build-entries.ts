@@ -22,38 +22,39 @@ export interface BuildEntriesInput {
 export function buildEntriesForTransaction(
   input: BuildEntriesInput
 ): EntryCreatePayload[] {
-  const abs = Math.abs(input.amount);
-  if (!abs || Number.isNaN(abs)) {
+  const amount = input.amount;
+  if (amount == null || Number.isNaN(amount) || amount === 0) {
     throw new Error("Podaj poprawną kwotę");
   }
 
   const rate = input.exchangeRate || 1;
-  const pln = Math.round(abs * rate * 100) / 100;
   const { currency } = input;
 
   switch (input.type) {
     case "income": {
       if (!input.targetAccountId) throw new Error("Wybierz konto docelowe");
+      const amount_pln = signedAmountPln(amount, rate);
       return [
         {
           account_id: input.targetAccountId,
-          amount: abs,
+          amount,
           currency,
           exchange_rate: rate,
-          amount_pln: pln,
+          amount_pln,
           sort_order: 0,
         },
       ];
     }
     case "expense": {
       if (!input.sourceAccountId) throw new Error("Wybierz konto źródłowe");
+      const amount_pln = signedAmountPln(amount, rate);
       return [
         {
           account_id: input.sourceAccountId,
-          amount: -abs,
+          amount: -amount,
           currency,
           exchange_rate: rate,
-          amount_pln: -pln,
+          amount_pln: -amount_pln,
           sort_order: 0,
         },
       ];
@@ -61,14 +62,13 @@ export function buildEntriesForTransaction(
     case "adjustment": {
       const accountId = input.targetAccountId || input.sourceAccountId;
       if (!accountId) throw new Error("Wybierz konto");
-      const signed = input.amount < 0 ? -pln : pln;
       return [
         {
           account_id: accountId,
-          amount: input.amount,
+          amount,
           currency,
           exchange_rate: rate,
-          amount_pln: signed,
+          amount_pln: signedAmountPln(amount, rate),
           sort_order: 0,
         },
       ];
@@ -78,6 +78,8 @@ export function buildEntriesForTransaction(
       if (!input.sourceAccountId || !input.targetAccountId) {
         throw new Error("Transfer wymaga konta źródłowego i docelowego");
       }
+      const abs = Math.abs(amount);
+      const pln = Math.round(abs * rate * 100) / 100;
       return [
         {
           account_id: input.sourceAccountId,

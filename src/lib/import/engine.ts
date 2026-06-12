@@ -10,6 +10,11 @@ import { loadActiveCategorizationRules } from "@/lib/categorization/load-rules";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { IMPORTED_ACCOUNT_DEFAULTS } from "@/lib/import/account-defaults";
 import { rpcImportTransactionBatch, type ImportBatchItem } from "@/lib/import/batch-rpc";
+import {
+  buildImportIncomeExpenseEntry,
+  buildImportTransferAmounts,
+} from "@/lib/import/signed-amounts";
+import { signedAmountPln } from "@/lib/balances/invariants";
 
 const BATCH_SIZE = 500;
 const CASH_ACCOUNT = "Gotówka PLN";
@@ -333,26 +338,63 @@ async function processBatch(supabase: SupabaseClient, userId: string, importId: 
       rules
     );
 
-    const abs = Math.abs(row.amount);
-    const pln = Math.round(abs * row.exchange_rate * 100) / 100;
     const entries: Record<string, unknown>[] = [];
 
     if (validation.canCreateEntries) {
-      if (validation.txType === "income") {
-        entries.push({ account_id: accountMap.get(row.target_account), amount: abs, currency: row.currency, exchange_rate: row.exchange_rate, amount_pln: pln, sort_order: 0 });
-      } else if (validation.txType === "expense") {
-        const acc = validation.useCashAccount ? CASH_ACCOUNT : row.source_account;
-        entries.push({ account_id: accountMap.get(acc), amount: -abs, currency: row.currency, exchange_rate: row.exchange_rate, amount_pln: -pln, sort_order: 0 });
-      } else if (validation.txType === "transfer") {
-        entries.push({ account_id: accountMap.get(row.source_account), amount: -abs, currency: row.currency, exchange_rate: row.exchange_rate, amount_pln: -pln, sort_order: 0 });
-        entries.push({ account_id: accountMap.get(row.target_account), amount: abs, currency: row.currency, exchange_rate: row.exchange_rate, amount_pln: pln, sort_order: 1 });
-      } else if (validation.txType === "exchange") {
-        entries.push({ account_id: accountMap.get(row.source_account), amount: -abs, currency: row.currency, exchange_rate: row.exchange_rate, amount_pln: -pln, sort_order: 0 });
-        entries.push({ account_id: accountMap.get(row.target_account), amount: abs, currency: row.currency, exchange_rate: row.exchange_rate, amount_pln: pln, sort_order: 1 });
+      if (validation.txType === "income" || validation.txType === "expense") {
+        const signed = buildImportIncomeExpenseEntry(
+          validation.txType,
+          row.amount!,
+          row.exchange_rate
+        );
+        const accountKey =
+          validation.txType === "income"
+            ? row.target_account
+            : validation.useCashAccount
+              ? CASH_ACCOUNT
+              : row.source_account;
+        entries.push({
+          account_id: accountMap.get(accountKey),
+          amount: signed.amount,
+          currency: row.currency,
+          exchange_rate: row.exchange_rate,
+          amount_pln: signed.amount_pln,
+          sort_order: 0,
+        });
+      } else if (
+        validation.txType === "transfer" ||
+        validation.txType === "exchange"
+      ) {
+        const { absAmount, amountPln } = buildImportTransferAmounts(
+          row.amount!,
+          row.exchange_rate
+        );
+        entries.push({
+          account_id: accountMap.get(row.source_account),
+          amount: -absAmount,
+          currency: row.currency,
+          exchange_rate: row.exchange_rate,
+          amount_pln: -amountPln,
+          sort_order: 0,
+        });
+        entries.push({
+          account_id: accountMap.get(row.target_account),
+          amount: absAmount,
+          currency: row.currency,
+          exchange_rate: row.exchange_rate,
+          amount_pln: amountPln,
+          sort_order: 1,
+        });
       } else if (validation.txType === "adjustment") {
         const acc = row.target_account || row.source_account;
-        const signed = row.amount! < 0 ? -pln : pln;
-        entries.push({ account_id: accountMap.get(acc), amount: row.amount!, currency: row.currency, exchange_rate: row.exchange_rate, amount_pln: signed, sort_order: 0 });
+        entries.push({
+          account_id: accountMap.get(acc),
+          amount: row.amount!,
+          currency: row.currency,
+          exchange_rate: row.exchange_rate,
+          amount_pln: signedAmountPln(row.amount!, row.exchange_rate),
+          sort_order: 0,
+        });
       }
     }
 

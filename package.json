@@ -12,7 +12,7 @@
     "audit:csv": "node scripts/audit-csv.mjs",
     "import:excel": "node scripts/import-excel.mjs",
     "import:excel:dry": "node scripts/import-excel.mjs --dry-run",
-    "test": "node --experimental-strip-types --test src/lib/balances/*.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/balances/*.test.ts src/lib/import/*.test.ts src/lib/transactions/*.test.ts",
     "verify:balances": "node scripts/verify-balances.mjs",
     "reconcile:balances": "node scripts/reconcile-balances.mjs",
     "clear:all": "node scripts/clear-all-data.mjs --yes",

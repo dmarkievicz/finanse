@@ -288,33 +288,47 @@ function validateRow(row) {
   };
 }
 
+function signedAmountPln(amount, exchangeRate) {
+  const abs = Math.round(Math.abs(amount) * exchangeRate * 100) / 100;
+  return amount < 0 ? -abs : abs;
+}
+
+function buildIncomeExpenseEntry(txType, excelAmount, exchangeRate) {
+  const amountPln = signedAmountPln(excelAmount, exchangeRate);
+  if (txType === "income") {
+    return { amount: excelAmount, amount_pln: amountPln };
+  }
+  return { amount: -excelAmount, amount_pln: -amountPln };
+}
+
 function buildEntries(row, validation, accountMap) {
   if (!validation.canCreateEntries) return [];
 
-  const absAmount = Math.abs(row.amount);
-  const amountPln = Math.round(absAmount * row.exchange_rate * 100) / 100;
   const entries = [];
 
-  if (validation.txType === "income") {
-    entries.push({
-      account_id: accountMap.get(row.target_account),
-      amount: absAmount,
-      currency: row.currency,
-      exchange_rate: row.exchange_rate,
-      amount_pln: amountPln,
-      sort_order: 0,
-    });
-  } else if (validation.txType === "expense") {
-    const accountName = validation.useCashAccount ? CASH_ACCOUNT : row.source_account;
+  if (validation.txType === "income" || validation.txType === "expense") {
+    const signed = buildIncomeExpenseEntry(
+      validation.txType,
+      row.amount,
+      row.exchange_rate
+    );
+    const accountName =
+      validation.txType === "income"
+        ? row.target_account
+        : validation.useCashAccount
+          ? CASH_ACCOUNT
+          : row.source_account;
     entries.push({
       account_id: accountMap.get(accountName),
-      amount: -absAmount,
+      amount: signed.amount,
       currency: row.currency,
       exchange_rate: row.exchange_rate,
-      amount_pln: -amountPln,
+      amount_pln: signed.amount_pln,
       sort_order: 0,
     });
   } else if (validation.txType === "transfer") {
+    const absAmount = Math.abs(row.amount);
+    const amountPln = Math.round(absAmount * row.exchange_rate * 100) / 100;
     entries.push({
       account_id: accountMap.get(row.source_account),
       amount: -absAmount,
@@ -332,6 +346,8 @@ function buildEntries(row, validation, accountMap) {
       sort_order: 1,
     });
   } else if (validation.txType === "exchange") {
+    const absAmount = Math.abs(row.amount);
+    const amountPln = Math.round(absAmount * row.exchange_rate * 100) / 100;
     entries.push({
       account_id: accountMap.get(row.source_account),
       amount: -absAmount,
@@ -350,7 +366,7 @@ function buildEntries(row, validation, accountMap) {
     });
   } else if (validation.txType === "adjustment") {
     const acc = row.target_account || row.source_account;
-    const signed = row.amount < 0 ? -amountPln : amountPln;
+    const signed = signedAmountPln(row.amount, row.exchange_rate);
     entries.push({
       account_id: accountMap.get(acc),
       amount: row.amount,

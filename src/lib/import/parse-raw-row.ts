@@ -46,9 +46,19 @@ export function hintFromImportRaw(
   const target = String(getField(raw, "target account") || "").trim();
 
   const amount = Number.isFinite(amountRaw) ? amountRaw : null;
+  const typeLower = String(getField(raw, "type")).trim().toLowerCase();
   const amountPln =
     amount != null && amount !== 0
-      ? Math.round(Math.abs(amount) * rate * 100) / 100
+      ? (() => {
+          const pln = Math.round(Math.abs(amount) * rate * 100) / 100;
+          if (typeLower === "expenses" || typeLower === "expense") {
+            return amount > 0 ? -pln : pln;
+          }
+          if (typeLower === "income") {
+            return amount < 0 ? -pln : pln;
+          }
+          return pln;
+        })()
       : null;
 
   const firstIssue = validationErrors?.[0]?.message ?? null;

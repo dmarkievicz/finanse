@@ -49,7 +49,7 @@ export async function fetchTransactionSummary(
     txCount: Number(row?.tx_count ?? 0),
     incomeTotal: income,
     expenseTotal: expense,
-    balance: income - expense,
+    balance: income - expense, // net przychody − wydatki (zwroty w przychodach)
     maxIncome: Number(row?.max_income ?? 0),
     maxExpense: Number(row?.max_expense ?? 0),
   };

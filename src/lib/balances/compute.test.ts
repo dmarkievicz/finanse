@@ -81,6 +81,24 @@ describe("computeMonthlyCashflow", () => {
     assert.equal(cf.surplus_pln, 3800);
   });
 
+  it("zwrot wydatku (dodatni wpis) obniża sumę wydatków", () => {
+    const withRefund = [
+      { type: "expense", amount_pln: -100, status: "confirmed", year: 2024, month: 5 },
+      { type: "expense", amount_pln: 40, status: "confirmed", year: 2024, month: 5 },
+    ];
+    const cf = computeMonthlyCashflow(withRefund, 2024, 5);
+    assert.equal(cf.expense_pln, 60);
+  });
+
+  it("ujemny przychód obniża sumę przychodów", () => {
+    const rows = [
+      { type: "income", amount_pln: 2000, status: "confirmed", year: 2024, month: 6 },
+      { type: "income", amount_pln: -300, status: "confirmed", year: 2024, month: 6 },
+    ];
+    const cf = computeMonthlyCashflow(rows, 2024, 6);
+    assert.equal(cf.income_pln, 1700);
+  });
+
   it("pusty miesiąc zwraca zera", () => {
     const cf = computeMonthlyCashflow(rows, 2020, 1);
     assert.equal(cf.income_pln, 0);

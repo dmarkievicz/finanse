@@ -66,7 +66,7 @@ export function computeMonthlyCashflow(
 
   const expense_pln = monthRows
     .filter((r) => r.type === "expense")
-    .reduce((s, r) => s + Math.abs(r.amount_pln), 0);
+    .reduce((s, r) => s - r.amount_pln, 0);
 
   return {
     income_pln,
