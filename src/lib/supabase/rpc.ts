@@ -67,6 +67,37 @@ export async function rpcCategoryBreakdown(
   return (data ?? []) as CategoryBreakdown[];
 }
 
+export async function rpcCategoriesAnalyticsBundle(
+  supabase: ServerSupabaseClient,
+  period: {
+    current: { from: string; to: string };
+    previous: { from: string; to: string };
+    budgetYear: number;
+    budgetMonth: number;
+  },
+  mode: BalanceMode = "current"
+) {
+  const { data, error } = await supabase.rpc(
+    "get_categories_analytics_bundle",
+    {
+      p_current_from: period.current.from,
+      p_current_to: period.current.to,
+      p_prev_from: period.previous.from,
+      p_prev_to: period.previous.to,
+      p_mode: mode,
+      p_budget_year: period.budgetYear,
+      p_budget_month: period.budgetMonth,
+    } as never
+  );
+  if (error) {
+    if (error.code === "PGRST202" || /get_categories_analytics_bundle/i.test(error.message ?? "")) {
+      return null;
+    }
+    throw error;
+  }
+  return data as Record<string, unknown>;
+}
+
 export async function rpcNeedsReviewCount(supabase: ServerSupabaseClient) {
   const { data, error } = await supabase.rpc("get_needs_review_count");
   if (error) throw error;

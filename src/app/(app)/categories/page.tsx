@@ -1,38 +1,35 @@
-import { PageHeader } from "@/components/page-header";
-import { CategoriesTable } from "@/components/categories/categories-table";
 import { createClient } from "@/lib/supabase/server";
-import { fetchCategoriesList } from "@/lib/queries/categories";
-import { formatMonthLabel } from "@/lib/format";
+import { parseCategoriesPeriod } from "@/lib/categories/period";
+import { fetchCategoriesAnalytics } from "@/lib/queries/category-analytics";
+import { CategoriesWorkspace } from "@/components/categories/categories-workspace";
 
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
 export default async function CategoriesPage({ searchParams }: Props) {
   const params = await searchParams;
-  const now = new Date();
-  let year = now.getFullYear();
-  let month = now.getMonth() + 1;
-
-  if (params.month && /^\d{4}-\d{2}$/.test(params.month)) {
-    const [y, m] = params.month.split("-").map(Number);
-    year = y;
-    month = m;
-  }
-
   const supabase = await createClient();
-  const items = await fetchCategoriesList(supabase, year, month);
-  const monthLabel = formatMonthLabel(`${year}-${String(month).padStart(2, "0")}`);
+  const period = parseCategoriesPeriod(params);
+
+  const [data, catsRes] = await Promise.all([
+    fetchCategoriesAnalytics(supabase, period, params),
+    supabase.from("categories").select("id, name").is("deleted_at", null).order("name"),
+  ]);
+
+  if (catsRes.error) throw catsRes.error;
+
+  const allCategories = (catsRes.data ?? []) as { id: string; name: string }[];
 
   return (
-    <div>
-      <PageHeader
-        title="Kategorie"
-        description={`${items.length} kategorii · wydatki: ${monthLabel}`}
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <CategoriesWorkspace
+        data={data}
+        allCategories={allCategories}
+        baseParams={params}
       />
-      <CategoriesTable items={items} monthLabel={monthLabel} />
     </div>
   );
 }
