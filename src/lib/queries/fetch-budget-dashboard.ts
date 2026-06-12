@@ -3,6 +3,7 @@ import type { CategoryType } from "@/types/database";
 import {
   parseBudgetDashboardParams,
   periodCompletionPct,
+  resolveBudgetDashboardQueryMode,
   MONTH_NAMES_PL,
   type BudgetDashboardSelection,
 } from "@/lib/dashboard/budget-period";
@@ -202,7 +203,11 @@ export async function fetchBudgetDashboardPageData(
 ): Promise<BudgetDashboardPageData> {
   const selection = parseBudgetDashboardParams(searchParams);
   const settings = await fetchUserSettings(supabase);
-  const mode = balanceMode(settings);
+  const mode = resolveBudgetDashboardQueryMode(
+    selection,
+    settings?.analysis_start_date ?? null,
+    balanceMode(settings)
+  );
 
   const [yearRange, catsRes] = await Promise.all([
     fetchTransactionYearRange(supabase, settings?.analysis_start_date ?? null),
@@ -299,7 +304,10 @@ export async function fetchBudgetDashboardPageData(
     );
   }
 
-  const hasPeriodData = incomeTotals.tracked > 0 || expenseTotals.tracked > 0;
+  const hasPeriodData =
+    incomeTotals.tracked > 0 ||
+    expenseTotals.tracked > 0 ||
+    monthlySeries.some((m) => m.hasData);
 
   return {
     selection,

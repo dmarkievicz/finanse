@@ -55,12 +55,14 @@ export function DashboardPeriodSelector({
             value={yearValue}
             onChange={(e) => {
               const year = e.target.value;
-              const period =
-                year === "all"
-                  ? "all_history"
-                  : selection.isAllData
-                    ? "current_month"
-                    : periodValue;
+              let period: string;
+              if (year === "all") {
+                period = "all_history";
+              } else if (year === "current") {
+                period = selection.isAllData ? "current_month" : periodValue;
+              } else {
+                period = "total_year";
+              }
               navigate(buildBudgetDashboardUrl({ year, period }, urlBase));
             }}
             className={cn(btnClass, "appearance-none pr-8")}

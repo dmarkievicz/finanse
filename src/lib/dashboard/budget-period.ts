@@ -74,10 +74,25 @@ export function parseBudgetDashboardParams(
 ): BudgetDashboardSelection {
   const yearParam = parseYearParam(params.year);
   const isAllData = yearParam === "all";
-  const periodParam = parsePeriodParam(params.period, isAllData);
+
+  let periodRaw = params.period;
+  if (!periodRaw && !isAllData && typeof yearParam === "number") {
+    periodRaw = yearParam === ref.getFullYear() ? "current_month" : "total_year";
+  }
+
+  let periodParam = parsePeriodParam(periodRaw, isAllData);
 
   const resolvedYear =
     yearParam === "all" ? null : yearParam === "current" ? ref.getFullYear() : yearParam;
+
+  if (
+    !isAllData &&
+    resolvedYear != null &&
+    resolvedYear < ref.getFullYear() &&
+    periodParam === "current_month"
+  ) {
+    periodParam = "total_year";
+  }
 
   let resolvedMonth: number | null = null;
   let from = "";
@@ -170,6 +185,21 @@ export function periodCompletionPct(selection: BudgetDashboardSelection, ref = n
 
   const daysInMonth = new Date(y, m, 0).getDate();
   return Math.round((day / daysInMonth) * 100);
+}
+
+/**
+ * Tryb zapytań RPC: dla okresów historycznych (przed analysis_start_date) używaj pełnej historii.
+ */
+export function resolveBudgetDashboardQueryMode(
+  selection: BudgetDashboardSelection,
+  analysisStartDate: string | null,
+  defaultMode: "current" | "full"
+): "current" | "full" {
+  if (defaultMode === "full") return "full";
+  if (!analysisStartDate) return "full";
+  if (selection.isAllData) return "full";
+  if (selection.from < analysisStartDate) return "full";
+  return defaultMode;
 }
 
 export function buildBudgetDashboardUrl(

@@ -101,13 +101,18 @@ export function TransactionsToolbar({
 
   useEffect(() => {
     if (!moreOpen) return;
-    function onPointerDown(e: MouseEvent) {
+    function onClickOutside(e: MouseEvent) {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreOpen(false);
       }
     }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    const id = window.setTimeout(() => {
+      document.addEventListener("click", onClickOutside);
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener("click", onClickOutside);
+    };
   }, [moreOpen]);
 
   useEffect(() => {
@@ -254,16 +259,21 @@ export function TransactionsToolbar({
           </label>
         </div>
 
-        {/* Desktop: okres */}
+        {/* Desktop: okres — „Więcej” poza overflow-x-auto, żeby menu nie było obcinane */}
         <div className="hidden md:block">
           <p className="mb-2 text-xs font-medium text-muted">Okres:</p>
-          <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5">
-            {PRIMARY_PERIOD_PRESETS.map((p) => periodChip(p.value, p.label))}
+          <div className="flex items-start gap-1.5">
+            <div className="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto px-1 pb-0.5">
+              {PRIMARY_PERIOD_PRESETS.map((p) => periodChip(p.value, p.label))}
+            </div>
             <div className="relative shrink-0" ref={moreRef}>
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => setMoreOpen((o) => !o)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMoreOpen((o) => !o);
+                }}
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 className={cn(
@@ -276,12 +286,14 @@ export function TransactionsToolbar({
                   ? MORE_PERIOD_PRESETS.find((p) => p.value === filterState.period)?.label ??
                     "Więcej"
                   : "Więcej"}
-                <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                <ChevronDown
+                  className={cn("h-3.5 w-3.5 opacity-70 transition", moreOpen && "rotate-180")}
+                />
               </button>
               {moreOpen && (
                 <div
                   role="menu"
-                  className="absolute left-0 top-full z-20 mt-1 min-w-[10rem] rounded-xl border border-border bg-card p-1 shadow-lg"
+                  className="absolute right-0 top-full z-50 mt-1 min-w-[10.5rem] rounded-xl border border-border bg-card p-1 shadow-lg"
                 >
                   {MORE_PERIOD_PRESETS.map((p) => (
                     <button
