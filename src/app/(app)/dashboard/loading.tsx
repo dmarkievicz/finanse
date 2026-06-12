@@ -8,16 +8,14 @@ export default function DashboardLoading() {
   return (
     <PageContainer>
       <Skeleton className="h-16" />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[7.5rem]" />
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24" />
         ))}
       </div>
-      <Skeleton className="h-56" />
-      <div className="grid gap-4 lg:grid-cols-12">
-        <Skeleton className="h-64 lg:col-span-4" />
-        <Skeleton className="h-64 lg:col-span-5" />
-        <Skeleton className="h-64 lg:col-span-3" />
+      <div className="mt-4 grid gap-4 xl:grid-cols-12">
+        <Skeleton className="h-[32rem] xl:col-span-7" />
+        <Skeleton className="h-[32rem] xl:col-span-5" />
       </div>
     </PageContainer>
   );

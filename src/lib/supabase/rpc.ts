@@ -67,6 +67,27 @@ export async function rpcCategoryBreakdown(
   return (data ?? []) as CategoryBreakdown[];
 }
 
+export async function rpcCategoryBreakdownTyped(
+  supabase: ServerSupabaseClient,
+  from: string,
+  to: string,
+  txType: "income" | "expense",
+  mode: BalanceMode = "current"
+) {
+  if (txType === "expense") {
+    return rpcCategoryBreakdown(supabase, from, to, mode);
+  }
+  const { data, error } = await supabase.rpc(
+    "get_category_breakdown_typed",
+    { p_from: from, p_to: to, p_mode: mode, p_tx_type: txType } as never
+  );
+  if (error) {
+    if (error.code === "PGRST202") return [] as CategoryBreakdown[];
+    throw error;
+  }
+  return (data ?? []) as CategoryBreakdown[];
+}
+
 export async function rpcCategoriesAnalyticsBundle(
   supabase: ServerSupabaseClient,
   period: {
