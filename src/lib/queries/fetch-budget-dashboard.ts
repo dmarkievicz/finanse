@@ -9,6 +9,7 @@ import {
 } from "@/lib/dashboard/budget-period";
 import {
   buildBreakdownRow,
+  computeBreakdownRow,
   sumBreakdownTotals,
   incomeDonutSlices,
   expenseDonutSlices,
@@ -18,9 +19,11 @@ import {
   type DonutSlice,
   type MonthlyBudgetPoint,
 } from "@/lib/dashboard/budget-metrics";
+import type { CategoryBreakdown } from "@/types/database";
 import {
   rpcCategoryBreakdownTyped,
   rpcMonthlyCashflow,
+  rpcPeriodCashflow,
   type BalanceMode,
 } from "@/lib/supabase/rpc";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
@@ -56,6 +59,18 @@ export interface BudgetDashboardPageData {
   monthlySeries: MonthlyBudgetPoint[];
   showMonthlyCharts: boolean;
   hasPeriodData: boolean;
+}
+
+function mergePeriodTotals(
+  rowTotals: BudgetBreakdownTotals,
+  periodTracked: number
+): BudgetBreakdownTotals {
+  const metrics = computeBreakdownRow(periodTracked, rowTotals.budget);
+  return {
+    tracked: periodTracked,
+    budget: rowTotals.budget,
+    ...metrics,
+  };
 }
 
 async function fetchTransactionYearRange(
@@ -117,24 +132,42 @@ function budgetForCategory(
   return row ? Number(row.limit_pln) : null;
 }
 
-function buildSectionRows(
+function buildBreakdownRows(
+  breakdown: CategoryBreakdown[],
   categories: CategoryMeta[],
-  trackedMap: Map<string, number>,
   budgets: BudgetRecord[],
   selection: BudgetDashboardSelection,
-  typeFilter: "income" | "expense"
+  section: "income" | "expense"
 ): BudgetBreakdownRow[] {
-  const filtered = categories.filter((c) =>
-    typeFilter === "income" ? isIncomeCategory(c.type) : isExpenseCategory(c.type)
-  );
-
+  const catById = new Map(categories.map((c) => [c.id, c]));
   const rows: BudgetBreakdownRow[] = [];
+  const seenCategoryIds = new Set<string>();
 
-  for (const cat of filtered) {
-    const tracked = trackedMap.get(cat.id) ?? 0;
+  for (const item of breakdown) {
+    const tracked = Number(item.total_pln);
+    if (tracked === 0) continue;
+
+    const categoryId = item.category_id;
+    const cat = categoryId ? catById.get(categoryId) : null;
+    const rowId = categoryId ?? "__uncategorized__";
+    const name = item.category_name ?? cat?.name ?? "Bez kategorii";
+    const color = cat?.color ?? null;
+    const budget = categoryId
+      ? budgetForCategory(categoryId, cat?.type ?? section, budgets, selection)
+      : null;
+
+    if (categoryId) seenCategoryIds.add(categoryId);
+    rows.push(buildBreakdownRow(rowId, name, color, tracked, budget));
+  }
+
+  for (const cat of categories) {
+    if (seenCategoryIds.has(cat.id)) continue;
+    const inSection =
+      section === "income" ? isIncomeCategory(cat.type) : isExpenseCategory(cat.type);
+    if (!inSection) continue;
     const budget = budgetForCategory(cat.id, cat.type, budgets, selection);
-    if (tracked === 0 && budget == null) continue;
-    rows.push(buildBreakdownRow(cat.id, cat.name, cat.color, tracked, budget));
+    if (budget == null) continue;
+    rows.push(buildBreakdownRow(cat.id, cat.name, cat.color, 0, budget));
   }
 
   return rows.sort((a, b) => b.tracked - a.tracked);
@@ -243,37 +276,45 @@ export async function fetchBudgetDashboardPageData(
   }
   const to = selection.to;
 
-  const [incomeBreakdown, expenseBreakdown, budgets] = await Promise.all([
+  const [incomeBreakdown, expenseBreakdown, budgets, periodCashflow] = await Promise.all([
     rpcCategoryBreakdownTyped(supabase, from, to, "income", mode),
     rpcCategoryBreakdownTyped(supabase, from, to, "expense", mode),
     fetchBudgets(supabase, selection.resolvedYear),
+    rpcPeriodCashflow(supabase, from, to, mode),
   ]);
 
-  const incomeMap = new Map(
-    incomeBreakdown
-      .filter((r) => r.category_id)
-      .map((r) => [r.category_id!, Number(r.total_pln)])
+  const incomeRows = buildBreakdownRows(
+    incomeBreakdown,
+    categories,
+    budgets,
+    selection,
+    "income"
   );
-  const expenseMap = new Map(
-    expenseBreakdown
-      .filter((r) => r.category_id)
-      .map((r) => [r.category_id!, Number(r.total_pln)])
+  const expenseRows = buildBreakdownRows(
+    expenseBreakdown,
+    categories,
+    budgets,
+    selection,
+    "expense"
   );
 
-  const incomeRows = buildSectionRows(categories, incomeMap, budgets, selection, "income");
-  const expenseRows = buildSectionRows(categories, expenseMap, budgets, selection, "expense");
-
-  const incomeTotals = sumBreakdownTotals(incomeRows);
-  const expenseTotals = sumBreakdownTotals(expenseRows);
-  const balance = incomeTotals.tracked - expenseTotals.tracked;
+  const incomeTotals = mergePeriodTotals(
+    sumBreakdownTotals(incomeRows),
+    periodCashflow.income_pln
+  );
+  const expenseTotals = mergePeriodTotals(
+    sumBreakdownTotals(expenseRows),
+    periodCashflow.expense_pln
+  );
+  const balance = periodCashflow.surplus_pln;
   const perf = performanceLabel(balance);
 
-  const incomeDonut = incomeDonutSlices(incomeRows, incomeTotals.tracked);
-  const expenseDonut = expenseDonutSlices(expenseRows, expenseTotals.tracked);
+  const incomeDonut = incomeDonutSlices(incomeRows, periodCashflow.income_pln);
+  const expenseDonut = expenseDonutSlices(expenseRows, periodCashflow.expense_pln);
 
   const categoriesWithSpend = new Set([
-    ...incomeMap.keys(),
-    ...expenseMap.keys(),
+    ...incomeBreakdown.filter((r) => r.category_id).map((r) => r.category_id!),
+    ...expenseBreakdown.filter((r) => r.category_id).map((r) => r.category_id!),
   ]);
   const budgetedIds = new Set(budgets.map((b) => b.category_id));
   const missingBudgetCount = [...categoriesWithSpend].filter((id) => {

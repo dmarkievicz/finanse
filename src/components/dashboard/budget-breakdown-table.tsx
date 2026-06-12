@@ -102,7 +102,11 @@ function BreakdownSection({
                   key={row.categoryId}
                   row={row}
                   isExpense={isExpense}
-                  href={`/transactions?type=${txType}&category=${row.categoryId}&period=custom&from=${periodFrom}&to=${periodTo}`}
+                  href={
+              row.categoryId === "__uncategorized__"
+                ? `/transactions?type=${txType}&period=custom&from=${periodFrom}&to=${periodTo}`
+                : `/transactions?type=${txType}&category=${row.categoryId}&period=custom&from=${periodFrom}&to=${periodTo}`
+            }
                 />
               ))}
               <tr className="bg-slate-50/60 font-semibold">
@@ -151,7 +155,9 @@ function BreakdownRow({
         <Link href={href} className="font-medium text-slate-800 hover:text-[#1e3a5f]">
           {row.categoryName}
         </Link>
-        {row.budget == null && row.tracked > 0 && (
+        {row.categoryId !== "__uncategorized__" &&
+          row.budget == null &&
+          row.tracked > 0 && (
           <Link
             href="/budgets"
             className="ml-2 text-[11px] text-slate-400 hover:text-slate-600"
