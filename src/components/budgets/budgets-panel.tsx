@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
 import type { BudgetRow } from "@/lib/queries/budgets";
-import { formatPln } from "@/lib/format";
+import { monthKey, shiftBudgetMonth } from "@/lib/budgets/month-nav";
+import { formatMonthLabel, formatPln } from "@/lib/format";
 
 interface BudgetsPanelProps {
   budgets: BudgetRow[];
@@ -53,8 +54,31 @@ export function BudgetsPanel({ budgets, categories, year, month }: BudgetsPanelP
     router.refresh();
   }
 
+  const currentKey = monthKey(year, month);
+  const prev = shiftBudgetMonth(year, month, -1);
+  const next = shiftBudgetMonth(year, month, 1);
+  const monthLabel = formatMonthLabel(currentKey);
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+        <Link
+          href={`/budgets?month=${monthKey(prev.year, prev.month)}`}
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-muted hover:bg-slate-50 hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Poprzedni
+        </Link>
+        <p className="text-sm font-semibold capitalize text-foreground">{monthLabel}</p>
+        <Link
+          href={`/budgets?month=${monthKey(next.year, next.month)}`}
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-muted hover:bg-slate-50 hover:text-foreground"
+        >
+          Następny
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
+
       <form onSubmit={addBudget} className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
         <div className="min-w-[180px] flex-1">
           <label className="text-xs font-medium">Kategoria</label>

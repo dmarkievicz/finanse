@@ -4,11 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Download, Plus, RefreshCw, ChevronDown, Calendar } from "lucide-react";
-import {
-  buildDashboardUrl,
-  type DashboardChartRange,
-  type DashboardPeriodPreset,
-} from "@/lib/dashboard/period";
+import { buildDashboardUrl, type DashboardPeriodPreset } from "@/lib/dashboard/period";
 import { QuickTransactionDialog } from "@/components/dashboard/quick-transaction-dialog";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +21,6 @@ const btnSecondary =
 interface DashboardToolbarProps {
   periodLabel: string;
   periodPreset: DashboardPeriodPreset;
-  chartRange: DashboardChartRange;
   dateFrom?: string;
   dateTo?: string;
   accounts: { id: string; name: string; default_currency?: string }[];
@@ -35,7 +30,6 @@ interface DashboardToolbarProps {
 export function DashboardToolbar({
   periodLabel,
   periodPreset,
-  chartRange,
   dateFrom,
   dateTo,
   accounts,
@@ -74,7 +68,7 @@ export function DashboardToolbar({
                   onClick={() => {
                     setCustomOpen(false);
                     if (opt.value === "custom") return;
-                    navigate(buildDashboardUrl({ period: opt.value, chart: chartRange }));
+                    navigate(buildDashboardUrl({ period: opt.value }));
                   }}
                   className={cn(
                     "block w-full rounded-lg px-3 py-2 text-left text-[13px] hover:bg-slate-50",
@@ -105,7 +99,7 @@ export function DashboardToolbar({
                     onClick={() => {
                       setCustomOpen(false);
                       navigate(
-                        `/dashboard?period=custom&from=${from}&to=${to}&chart=${chartRange}`
+                        `/dashboard?period=custom&from=${from}&to=${to}`
                       );
                     }}
                     className="rounded-md bg-slate-800 px-2 py-1.5 text-[12px] font-medium text-white disabled:opacity-40"

@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { DashboardAccountRow } from "@/lib/queries/dashboard";
+import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
+import { isGoldLedgerAccount, isLiabilityAccountType } from "@/lib/accounts/classification";
 import { formatPln } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -13,18 +15,13 @@ import {
   dashboardLink,
 } from "@/components/dashboard/dashboard-ui";
 
-const TYPE_LABELS: Record<string, string> = {
-  bank: "Bank",
-  cash: "Gotówka",
-  broker: "Broker",
-  deposit: "Lokata",
-  loan: "Zobowiązanie",
-  real_estate: "Nieruchomość",
-  investment: "Inwestycja",
-  other: "Inne",
-};
-
-type AccountFilter = "active" | "archived" | "hidden" | "liabilities" | "investment";
+type AccountFilter =
+  | "active"
+  | "archived"
+  | "hidden"
+  | "credit_card"
+  | "liabilities"
+  | "investment";
 
 interface DashboardAccountsPanelProps {
   accounts: DashboardAccountRow[];
@@ -34,14 +31,14 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
   const [filter, setFilter] = useState<AccountFilter>("active");
 
   const filtered = useMemo(() => {
-    let list = [...accounts];
+    let list = accounts.filter((a) => !isGoldLedgerAccount(a.account_name));
     switch (filter) {
       case "active":
         list = list.filter(
           (a) =>
             a.lifecycle_status === "active" &&
             a.show_on_dashboard &&
-            a.account_type !== "loan"
+            !isLiabilityAccountType(a.account_type)
         );
         break;
       case "archived":
@@ -50,8 +47,13 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
       case "hidden":
         list = list.filter((a) => !a.show_on_dashboard && a.lifecycle_status === "active");
         break;
+      case "credit_card":
+        list = list.filter((a) => a.account_type === "credit_card");
+        break;
       case "liabilities":
-        list = list.filter((a) => a.account_type === "loan" || a.balance_pln < 0);
+        list = list.filter(
+          (a) => isLiabilityAccountType(a.account_type) || a.balance_pln < 0
+        );
         break;
       case "investment":
         list = list.filter((a) =>
@@ -64,6 +66,7 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
 
   const filters: { id: AccountFilter; label: string }[] = [
     { id: "active", label: "Aktywne" },
+    { id: "credit_card", label: "Karty" },
     { id: "archived", label: "Archiwum" },
     { id: "hidden", label: "Ukryte" },
     { id: "liabilities", label: "Długi" },
@@ -114,7 +117,9 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-medium text-slate-800">{a.account_name}</p>
                   <p className="text-[11px] text-slate-400">
-                    {TYPE_LABELS[a.account_type] ?? a.account_type} · {a.currency}
+                    {ACCOUNT_TYPE_LABELS[a.account_type as keyof typeof ACCOUNT_TYPE_LABELS] ??
+                      a.account_type}{" "}
+                    · {a.currency}
                   </p>
                 </div>
                 <div className="shrink-0 text-right">

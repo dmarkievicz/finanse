@@ -14,6 +14,7 @@ interface AccountsTableProps {
 const typeBadgeStyles: Record<AccountType, string> = {
   bank: "bg-blue-50 text-blue-700",
   cash: "bg-emerald-50 text-emerald-700",
+  credit_card: "bg-orange-50 text-orange-800",
   broker: "bg-violet-50 text-violet-700",
   deposit: "bg-amber-50 text-amber-700",
   investment: "bg-teal-50 text-teal-700",

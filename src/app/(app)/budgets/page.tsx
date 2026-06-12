@@ -2,14 +2,18 @@ import { PageHeader } from "@/components/page-header";
 import { BudgetsPanel } from "@/components/budgets/budgets-panel";
 import { createClient } from "@/lib/supabase/server";
 import { fetchBudgetsForMonth } from "@/lib/queries/budgets";
+import { parseBudgetMonthParam } from "@/lib/budgets/month-nav";
 import { formatMonthLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function BudgetsPage() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+interface BudgetsPageProps {
+  searchParams: Promise<{ month?: string }>;
+}
+
+export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
+  const { month: monthParam } = await searchParams;
+  const { year, month } = parseBudgetMonthParam(monthParam);
 
   const supabase = await createClient();
   const [budgets, catsRes] = await Promise.all([

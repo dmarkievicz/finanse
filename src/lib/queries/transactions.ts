@@ -44,6 +44,21 @@ export interface TransactionsPageData {
   needsReviewCount: number;
 }
 
+export async function fetchAccountTransactionCount(
+  supabase: ServerSupabaseClient,
+  accountId: string
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("transactions")
+    .select("id, transaction_entries!inner(account_id)", { count: "exact", head: true })
+    .is("deleted_at", null)
+    .neq("status", "needs_review")
+    .eq("transaction_entries.account_id", accountId);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export interface TransactionQueryOptions {
   page?: number;
   pageSize?: number;

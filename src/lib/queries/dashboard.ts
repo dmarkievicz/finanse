@@ -2,30 +2,20 @@ import type { AccountManageRow, CategoryBreakdown } from "@/types/database";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import {
   rpcAccountBalances,
-  rpcAccountsNeedsReviewCount,
   rpcAllAccountBalances,
-  rpcCashflowHistory,
   rpcCategoryBreakdown,
   rpcMonthlyCashflow,
-  rpcNeedsReviewCount,
   rpcNetWorth,
   rpcPeriodCashflow,
   type BalanceMode,
-  type CashflowHistoryRow,
 } from "@/lib/supabase/rpc";
 import { fetchInvestments, type AllocationSlice } from "@/lib/queries/investments";
 import { fetchInstrumentsPortfolio, type InstrumentRow } from "@/lib/queries/instruments";
-import { fetchUserGoal } from "@/lib/queries/goals";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { computeCurrencyExposure, type CurrencyExposureResult } from "@/lib/dashboard/currency-exposure";
-import { buildDashboardAlerts, type DashboardAlert } from "@/lib/dashboard/alerts";
-import { computeGoalMetrics, type GoalMetrics } from "@/lib/dashboard/goal-metrics";
-import {
-  chartMonthsCount,
-  type DashboardChartRange,
-  type DashboardPeriod,
-} from "@/lib/dashboard/period";
+import type { DashboardPeriod } from "@/lib/dashboard/period";
 import { INSTRUMENT_TYPE_LABELS, type InstrumentType } from "@/lib/queries/instruments";
+import { isGoldLedgerAccount } from "@/lib/accounts/classification";
 
 export interface CashflowMonth {
   label: string;
@@ -96,25 +86,14 @@ export interface DashboardInvestments {
 
 export interface DashboardData {
   period: DashboardPeriod;
-  chartRange: DashboardChartRange;
   asOfDate: string;
   kpis: DashboardKpi;
-  goal: {
-    name: string;
-    goalType: string;
-    current: number;
-    target: number;
-    targetDate: string | null;
-    metrics: GoalMetrics;
-  };
-  cashflowHistory: CashflowMonth[];
   categoryBreakdown: CategorySlice[];
   categoryTotal: number;
   accounts: DashboardAccountRow[];
   recentTransactions: RecentTransactionRow[];
   currencyExposure: CurrencyExposureResult;
   investments: DashboardInvestments;
-  alerts: DashboardAlert[];
 }
 
 const CATEGORY_COLORS = [
@@ -127,12 +106,6 @@ const CATEGORY_COLORS = [
 ];
 
 const LIQUID_TYPES = new Set(["bank", "cash"]);
-
-function monthLabel(year: number, month: number): string {
-  return new Intl.DateTimeFormat("pl-PL", { month: "short", year: "2-digit" }).format(
-    new Date(year, month - 1, 1)
-  );
-}
 
 function sumLiquidAssets(balances: { account_type: string; balance_pln: number }[]): number {
   return balances
@@ -218,44 +191,6 @@ function formatTransactionAmount(
     }).format(amount),
     account: entry.accounts?.name ?? "—",
   };
-}
-
-function mapCashflowHistory(rows: CashflowHistoryRow[]): CashflowMonth[] {
-  return rows.map((r) => ({
-    label: monthLabel(r.year, r.month),
-    year: r.year,
-    month: r.month,
-    income: r.income_pln,
-    expenses: r.expense_pln,
-    surplus: r.surplus_pln,
-    hasData: r.has_data,
-  }));
-}
-
-async function fallbackCashflowHistory(
-  supabase: ServerSupabaseClient,
-  months: number,
-  asOf: Date,
-  mode: BalanceMode
-): Promise<CashflowMonth[]> {
-  const points: CashflowMonth[] = [];
-  for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(asOf.getFullYear(), asOf.getMonth() - i, 1);
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const cf = await rpcMonthlyCashflow(supabase, y, m, mode);
-    const hasData = cf.income_pln > 0 || cf.expense_pln > 0;
-    points.push({
-      label: monthLabel(y, m),
-      year: y,
-      month: m,
-      income: cf.income_pln,
-      expenses: cf.expense_pln,
-      surplus: cf.surplus_pln,
-      hasData,
-    });
-  }
-  return points;
 }
 
 function buildInvestmentsSection(
@@ -355,16 +290,12 @@ function calcRateDelta(current: number, previous: number): number | null {
 
 export async function fetchDashboardData(
   supabase: ServerSupabaseClient,
-  period: DashboardPeriod,
-  chartRange: DashboardChartRange,
-  reference = new Date()
+  period: DashboardPeriod
 ): Promise<DashboardData> {
   const { current, previous } = period;
   const asOfDate = current.to;
   const settings = await fetchUserSettings(supabase);
   const mode: BalanceMode = balanceMode(settings);
-  const chartMonths = chartMonthsCount(chartRange, reference);
-
   const prevAsOfDate = previous.to;
 
   const [
@@ -376,15 +307,9 @@ export async function fetchDashboardData(
     allAccounts,
     categoryCurrent,
     categoryPrevious,
-    needsReviewCount,
-    accountsNeedsReviewCount,
     accountInvestments,
     instruments,
     recentRes,
-    uncategorizedRes,
-    importErrorsRes,
-    failedImportsRes,
-    cashflowRaw,
   ] = await Promise.all([
     rpcNetWorth(supabase, asOfDate, mode),
     rpcNetWorth(supabase, prevAsOfDate, mode),
@@ -408,8 +333,6 @@ export async function fetchDashboardData(
     rpcAllAccountBalances(supabase, asOfDate, mode),
     rpcCategoryBreakdown(supabase, current.from, current.to, mode),
     rpcCategoryBreakdown(supabase, previous.from, previous.to, mode),
-    rpcNeedsReviewCount(supabase),
-    rpcAccountsNeedsReviewCount(supabase),
     fetchInvestments(supabase, asOfDate),
     fetchInstrumentsPortfolio(supabase),
     supabase
@@ -424,22 +347,6 @@ export async function fetchDashboardData(
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(8),
-    supabase
-      .from("transactions")
-      .select("*", { count: "exact", head: true })
-      .is("deleted_at", null)
-      .eq("status", "confirmed")
-      .is("category_id", null)
-      .in("type", ["income", "expense"]),
-    supabase
-      .from("import_rows")
-      .select("*", { count: "exact", head: true })
-      .not("validation_errors", "is", null),
-    supabase
-      .from("imports")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "failed"),
-    rpcCashflowHistory(supabase, Math.max(chartMonths, 12), asOfDate, mode),
   ]);
 
   if (recentRes.error) throw recentRes.error;
@@ -481,30 +388,14 @@ export async function fetchDashboardData(
     savingsRateChange: calcRateDelta(savingsRate, prevSavingsRate),
   };
 
-  const goalData = await fetchUserGoal(supabase, netWorth, liquidAssets);
-  const goalMetrics = computeGoalMetrics(
-    goalData.current,
-    goalData.target_amount,
-    goalData.target_date,
-    periodCashflow.surplus_pln
-  );
-
   const { slices: categoryBreakdown, total: categoryTotal } = buildCategorySlices(
     categoryCurrent,
     categoryPrevious
   );
 
-  let cashflowHistory = mapCashflowHistory(cashflowRaw);
-  if (cashflowHistory.length === 0) {
-    cashflowHistory = await fallbackCashflowHistory(
-      supabase,
-      Math.max(chartMonths, 12),
-      reference,
-      mode
-    );
-  }
-
-  const accounts: DashboardAccountRow[] = (allAccounts as AccountManageRow[]).map((a) => {
+  const accounts: DashboardAccountRow[] = (allAccounts as AccountManageRow[])
+    .filter((a) => !isGoldLedgerAccount(a.account_name))
+    .map((a) => {
     const balance = Number(a.balance_pln);
     const prev = prevBalanceByAccount.get(a.account_id);
     const balanceChange = prev != null ? balance - prev : null;
@@ -549,46 +440,16 @@ export async function fetchDashboardData(
     };
   });
 
-  const negativeNonLoan = accounts.filter(
-    (a) => a.balance_pln < 0 && a.account_type !== "loan"
-  ).length;
-  const archivedInNetWorth = accounts.filter(
-    (a) => a.lifecycle_status === "archived" && a.include_in_net_worth
-  ).length;
-
-  const alerts = buildDashboardAlerts({
-    needsReviewCount,
-    accountsNeedsReviewCount,
-    uncategorizedCount: uncategorizedRes.count ?? 0,
-    importErrorRows: importErrorsRes.count ?? 0,
-    failedImports: failedImportsRes.count ?? 0,
-    accounts: allAccounts as AccountManageRow[],
-    instruments,
-    negativeNonLoanAccounts: negativeNonLoan,
-    archivedInNetWorth,
-  });
-
   return {
     period,
-    chartRange,
     asOfDate,
     kpis,
-    goal: {
-      name: goalData.name,
-      goalType: goalData.goal_type,
-      current: goalData.current,
-      target: goalData.target_amount,
-      targetDate: goalData.target_date,
-      metrics: goalMetrics,
-    },
-    cashflowHistory,
     categoryBreakdown,
     categoryTotal,
     accounts,
     recentTransactions,
     currencyExposure: computeCurrencyExposure(accountBalances),
     investments: buildInvestmentsSection(instruments, accountInvestments),
-    alerts,
   };
 }
 

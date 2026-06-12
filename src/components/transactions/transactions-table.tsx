@@ -1,3 +1,5 @@
+"use client";
+
 import { Fragment } from "react";
 import Link from "next/link";
 import {
@@ -23,6 +25,7 @@ interface TransactionsTableProps {
   grouped?: boolean;
   onSelect?: (id: string) => void;
   pageHref?: (page: number) => string;
+  onPageChange?: (page: number) => void;
 }
 
 const typeConfig = {
@@ -168,32 +171,47 @@ function MobileCard({ t, onSelect }: { t: TransactionListItem; onSelect?: (id: s
   const cfg = typeConfig[t.type] ?? typeConfig.adjustment;
   const displayAmount = t.amountPln ?? t.pendingAmountPln;
 
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect?.(t.id)}
-      className="w-full rounded-xl border border-border bg-card p-4 text-left shadow-sm transition hover:border-primary/30 hover:shadow"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs text-muted">{formatDate(t.date)}</p>
-          <p className="mt-0.5 font-medium">{t.category ?? cfg.label}</p>
-          <p className="text-xs text-muted">{t.details || t.accountLabel}</p>
-        </div>
-        <p
-          className={cn(
-            "text-lg font-bold tabular-nums",
-            t.type === "income"
-              ? "text-emerald-600"
-              : t.type === "expense"
-                ? "text-red-600"
-                : "text-foreground"
-          )}
-        >
-          {formatPlnSigned(displayAmount)}
-        </p>
+  const content = (
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="text-xs text-muted">{formatDate(t.date)}</p>
+        <p className="mt-0.5 font-medium">{t.category ?? cfg.label}</p>
+        <p className="text-xs text-muted">{t.details || t.accountLabel}</p>
       </div>
-    </button>
+      <p
+        className={cn(
+          "text-lg font-bold tabular-nums",
+          t.type === "income"
+            ? "text-emerald-600"
+            : t.type === "expense"
+              ? "text-red-600"
+              : "text-foreground"
+        )}
+      >
+        {formatPlnSigned(displayAmount)}
+      </p>
+    </div>
+  );
+
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect(t.id)}
+        className="w-full rounded-xl border border-border bg-card p-4 text-left shadow-sm transition hover:border-primary/30 hover:shadow"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      href={`/transactions/${t.id}`}
+      className="block w-full rounded-xl border border-border bg-card p-4 text-left shadow-sm transition hover:border-primary/30 hover:shadow"
+    >
+      {content}
+    </Link>
   );
 }
 
@@ -206,6 +224,7 @@ export function TransactionsTable({
   grouped = true,
   onSelect,
   pageHref,
+  onPageChange,
 }: TransactionsTableProps) {
   const hrefForPage = pageHref ?? ((p: number) => buildTransactionsPageUrl(filterState, p));
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -294,22 +313,40 @@ export function TransactionsTable({
           {pageSize} na stronę
         </p>
         <div className="flex gap-2">
-          {page > 1 && (
-            <Link
-              href={hrefForPage(page - 1)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
-            >
-              ← Poprzednia
-            </Link>
-          )}
-          {page < totalPages && (
-            <Link
-              href={hrefForPage(page + 1)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
-            >
-              Następna →
-            </Link>
-          )}
+          {page > 1 &&
+            (onPageChange ? (
+              <button
+                type="button"
+                onClick={() => onPageChange(page - 1)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+              >
+                ← Poprzednia
+              </button>
+            ) : (
+              <Link
+                href={hrefForPage(page - 1)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+              >
+                ← Poprzednia
+              </Link>
+            ))}
+          {page < totalPages &&
+            (onPageChange ? (
+              <button
+                type="button"
+                onClick={() => onPageChange(page + 1)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+              >
+                Następna →
+              </button>
+            ) : (
+              <Link
+                href={hrefForPage(page + 1)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+              >
+                Następna →
+              </Link>
+            ))}
         </div>
       </div>
     </div>

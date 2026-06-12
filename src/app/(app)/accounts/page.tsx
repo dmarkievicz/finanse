@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { AccountsSummary } from "@/components/accounts/accounts-summary";
-import { AccountsGroupedTable } from "@/components/accounts/accounts-grouped-table";
+import { AccountsCurrencyBoard } from "@/components/accounts/accounts-currency-board";
+import { buildAccountSections } from "@/lib/accounts/currency-groups";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAccounts, fetchAccountsManage } from "@/lib/queries/accounts";
 import { Plus, Settings2 } from "lucide-react";
@@ -19,7 +20,7 @@ export default async function AccountsPage() {
     <div>
       <PageHeader
         title="Konta"
-        description={`${data.accounts.length} aktywnych kont · posegregowane wg typu, alfabetycznie`}
+        description={`${data.accounts.length} aktywnych kont · bankowe, walutowe, gotówka, inwestycje`}
         action={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -65,7 +66,7 @@ export default async function AccountsPage() {
         netWorth={data.netWorth}
         asOfDate={data.asOfDate}
       />
-      <AccountsGroupedTable byType={data.byType} />
+      <AccountsCurrencyBoard sections={buildAccountSections(data.accounts)} />
     </div>
   );
 }

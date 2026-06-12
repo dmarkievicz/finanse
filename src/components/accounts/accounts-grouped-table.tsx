@@ -17,6 +17,7 @@ interface AccountsGroupedTableProps {
 const typeHeaderStyles: Record<AccountType, string> = {
   bank: "border-blue-200 bg-blue-50/80 text-blue-900",
   cash: "border-emerald-200 bg-emerald-50/80 text-emerald-900",
+  credit_card: "border-orange-200 bg-orange-50/80 text-orange-900",
   broker: "border-violet-200 bg-violet-50/80 text-violet-900",
   deposit: "border-amber-200 bg-amber-50/80 text-amber-900",
   investment: "border-teal-200 bg-teal-50/80 text-teal-900",

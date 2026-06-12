@@ -12,13 +12,11 @@ export default function DashboardLoading() {
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
-        <div className="grid gap-3 lg:grid-cols-3">
-          <Skeleton className="h-44 rounded-xl lg:col-span-2" />
-          <Skeleton className="h-44 rounded-xl" />
-        </div>
-        <div className="grid gap-3 lg:grid-cols-2">
-          <Skeleton className="h-56 rounded-xl" />
-          <Skeleton className="h-56 rounded-xl" />
+        <Skeleton className="h-56 rounded-xl" />
+        <div className="grid gap-3 lg:grid-cols-12">
+          <Skeleton className="h-64 rounded-xl lg:col-span-4" />
+          <Skeleton className="h-64 rounded-xl lg:col-span-5" />
+          <Skeleton className="h-64 rounded-xl lg:col-span-3" />
         </div>
       </div>
     </div>

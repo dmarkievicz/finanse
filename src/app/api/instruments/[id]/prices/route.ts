@@ -17,6 +17,8 @@ export async function POST(
     const date = String(body.date);
     const price = Number(body.price);
     const currency = String(body.currency ?? "PLN");
+    const source =
+      body.source === "api" || body.source === "nbp" ? body.source : "manual";
 
     if (!date || Number.isNaN(price)) {
       return NextResponse.json({ error: "Wymagane: data i cena" }, { status: 400 });
@@ -31,7 +33,7 @@ export async function POST(
           date,
           price,
           currency,
-          source: "manual",
+          source,
         } as never,
         { onConflict: "instrument_id,date" }
       )

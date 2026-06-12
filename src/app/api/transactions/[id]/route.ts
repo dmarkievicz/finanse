@@ -9,6 +9,7 @@ interface PatchBody {
   description?: string | null;
   details?: string | null;
   soft_delete?: boolean;
+  restore?: boolean;
 }
 
 export async function GET(
@@ -72,6 +73,18 @@ export async function PATCH(
 
       if (error) throw error;
       return NextResponse.json({ ok: true, deleted: true });
+    }
+
+    if (body.restore) {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ deleted_at: null } as never)
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .not("deleted_at", "is", null);
+
+      if (error) throw error;
+      return NextResponse.json({ ok: true, restored: true });
     }
 
     const patch: Record<string, unknown> = {};

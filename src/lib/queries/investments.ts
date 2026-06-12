@@ -3,6 +3,7 @@ import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { rpcAccountBalances } from "@/lib/supabase/rpc";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { sortByNamePl } from "@/lib/locale-sort";
+import { isGoldLedgerAccount } from "@/lib/accounts/classification";
 
 export interface InvestmentPosition {
   account_id: string;
@@ -29,7 +30,7 @@ export interface InvestmentsPageData {
 }
 
 const INVESTMENT_NAME_PATTERNS =
-  /lokat|obligac|złoto|zlot|xtb|inwestycj|pzu|ikze|krypto|lego|robo-doradca|etf|bos/i;
+  /lokat|obligac|xtb|inwestycj|pzu|ikze|krypto|lego|robo-doradca|etf|bos/i;
 
 export const INVESTMENT_CATEGORY_ORDER = [
   "ETF / akcje",
@@ -45,7 +46,6 @@ const CATEGORY_RULES: { pattern: RegExp; name: string; color: string }[] = [
   { pattern: /xtb|etf|ikze|robo/i, name: "ETF / akcje", color: "#1e3a5f" },
   { pattern: /obligac/i, name: "Obligacje", color: "#0d9488" },
   { pattern: /lokat/i, name: "Lokaty", color: "#3b82f6" },
-  { pattern: /złoto|zlot/i, name: "Złoto", color: "#f59e0b" },
   { pattern: /pzu/i, name: "Ubezpieczenia", color: "#8b5cf6" },
   { pattern: /krypto/i, name: "Krypto", color: "#ec4899" },
 ];
@@ -58,6 +58,7 @@ function inferCategory(name: string): { name: string; color: string } {
 }
 
 function isInvestmentAccount(acc: AccountBalance): boolean {
+  if (isGoldLedgerAccount(acc.account_name)) return false;
   if (acc.account_type === "investment" || acc.account_type === "broker" || acc.account_type === "deposit") {
     return true;
   }

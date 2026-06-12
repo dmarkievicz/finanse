@@ -81,6 +81,11 @@ export function InstrumentCreateForm({ accounts }: InstrumentCreateFormProps) {
               </option>
             ))}
           </select>
+          {instrumentType === "GOLD" && (
+            <p className="mt-1.5 text-[11px] text-amber-700">
+              Złoto śledź jako instrument (gramy, cena), nie jako konto operacyjne.
+            </p>
+          )}
         </div>
         <div>
           <label className="text-xs font-medium">Waluta</label>

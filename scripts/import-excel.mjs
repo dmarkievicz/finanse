@@ -20,12 +20,14 @@ const DEFAULT_USER_EMAIL = "dmarkiewicz@go2.pl";
 const INVESTMENT_ACCOUNTS = new Set([
   "LOKATY PLN",
   "Obligacje",
-  "ZŁOTO",
   "PZU MISS",
   "PZU ZROWN.",
   "XTB",
   "Inwestycje PLN",
 ]);
+
+/** Konto księgowe transferów — wartość złota w module Inwestycje (instrument GOLD). */
+const GOLD_LEDGER_ACCOUNTS = new Set(["ZŁOTO"]);
 
 const TYPE_MAP = {
   expenses: "expense",
@@ -170,9 +172,12 @@ function normalizeRow(raw, rowNumber) {
 
 function inferAccountType(name) {
   if (INVESTMENT_ACCOUNTS.has(name)) return "investment";
+  if (GOLD_LEDGER_ACCOUNTS.has(name)) return "other";
   if (/^gotówka/i.test(name) || /^portfel/i.test(name)) return "cash";
   if (/pożyczone|hipoteczny/i.test(name)) return "loan";
-  if (/xtb|inwestycje|lokaty|obligacje|złoto|pzu|ikze|krypto|robo-doradca/i.test(name)) return "investment";
+  if (/karta|visa|mastercard|amex|credit\s*card/i.test(name)) return "credit_card";
+  if (/xtb|inwestycje|lokaty|obligacje|pzu|ikze|krypto|robo-doradca/i.test(name)) return "investment";
+  if (/\bzłoto\b|\bzlot\b/i.test(name)) return "other";
   if (/bank|mbank|ing|alior|millennium|nest|revolut|n26|bnp|agricole|velo|bph|bos|lego|multibank/i.test(name)) {
     return "bank";
   }

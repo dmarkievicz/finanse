@@ -6,6 +6,7 @@
 export type AccountType =
   | "bank"
   | "cash"
+  | "credit_card"
   | "broker"
   | "deposit"
   | "loan"
@@ -51,6 +52,7 @@ export interface Account {
   needs_review: boolean;
   imported_at: string | null;
   notes: string | null;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

@@ -54,9 +54,15 @@ export default async function InvestmentsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Inwestycje"
-        description="Portfel — instrumenty i konta inwestycyjne, posegregowane alfabetycznie"
+        description="Portfel — ETF, obligacje, złoto (instrument GOLD) i inne pozycje. Złoto nie jest kontem operacyjnym."
         action={
           <div className="flex flex-wrap gap-2">
+            <Link
+              href="/investments/bullion"
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-700 to-amber-600 px-3 py-2 text-sm font-medium text-white shadow-md hover:from-amber-600 hover:to-amber-500"
+            >
+              Bulion Vault
+            </Link>
             <Link
               href="/investments/new"
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"

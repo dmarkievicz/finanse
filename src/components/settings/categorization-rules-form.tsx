@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Trash2, Wand2 } from "lucide-react";
 
 interface RuleRow {
   id: string;
@@ -22,6 +22,8 @@ export function CategorizationRulesForm({ rules, categories }: CategorizationRul
   const [pattern, setPattern] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [applyResult, setApplyResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleAdd(e: React.FormEvent) {
@@ -50,6 +52,29 @@ export function CategorizationRulesForm({ rules, categories }: CategorizationRul
     router.refresh();
   }
 
+  async function applyRules(onlyUncategorized: boolean) {
+    setApplying(true);
+    setApplyResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/categorization-rules/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ only_uncategorized: onlyUncategorized }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Błąd");
+      setApplyResult(
+        `Zaktualizowano ${data.updated} z ${data.scanned} sprawdzonych transakcji.`
+      );
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Błąd");
+    } finally {
+      setApplying(false);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center gap-2">
@@ -58,7 +83,8 @@ export function CategorizationRulesForm({ rules, categories }: CategorizationRul
       </div>
       <p className="mt-2 text-sm text-muted">
         Jeśli opis transakcji zawiera wzorzec (np. „biedronka”), przypisz kategorię przy ręcznym
-        dodawaniu.
+        dodawaniu, imporcie Excel (gdy brak kategorii w pliku) lub po zastosowaniu reguł do
+        istniejących transakcji.
       </p>
 
       <form onSubmit={handleAdd} className="mt-4 flex flex-wrap gap-2">
@@ -92,6 +118,34 @@ export function CategorizationRulesForm({ rules, categories }: CategorizationRul
           Dodaj
         </button>
       </form>
+
+      {rules.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={applying}
+            onClick={() => void applyRules(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
+          >
+            {applying ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Zastosuj do bez kategorii
+          </button>
+          <button
+            type="button"
+            disabled={applying}
+            onClick={() => void applyRules(false)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted hover:bg-slate-50 disabled:opacity-50"
+          >
+            Przepuść wszystkie reguły ponownie
+          </button>
+        </div>
+      )}
+
+      {applyResult && <p className="mt-2 text-sm text-emerald-700">{applyResult}</p>}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
       {rules.length > 0 && (

@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import type { InstrumentDetail } from "@/lib/queries/instruments";
 import { INSTRUMENT_TYPE_LABELS } from "@/lib/queries/instruments";
+import { BullionDetailSection } from "@/components/investments/bullion-detail-section";
+import { BullionSpotTicker } from "@/components/investments/bullion/bullion-spot-ticker";
+import Link from "next/link";
+import { Vault } from "lucide-react";
 import { formatPln } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -137,6 +141,22 @@ export function InstrumentDetailPanel({ instrument }: InstrumentDetailPanelProps
           )}
         </div>
       </div>
+
+      {instrument.instrument_type === "GOLD" && (
+        <div className="space-y-4">
+          <Link
+            href="/investments/bullion"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-amber-700 hover:text-amber-900"
+          >
+            <Vault className="h-4 w-4" />
+            Bulion Vault
+          </Link>
+          <div className="overflow-hidden rounded-2xl">
+            <BullionSpotTicker />
+          </div>
+          <BullionDetailSection instrument={instrument} />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
         <span>{INSTRUMENT_TYPE_LABELS[instrument.instrument_type]}</span>

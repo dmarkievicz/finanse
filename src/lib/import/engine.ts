@@ -1,6 +1,13 @@
 import { createHash } from "crypto";
 import readXlsxFile from "read-excel-file/node";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { inferAccountTypeFromName } from "@/lib/accounts/classification";
+import {
+  matchCategoryFromRules,
+  type CategorizationRule,
+} from "@/lib/categorization/match-rule";
+import { loadActiveCategorizationRules } from "@/lib/categorization/load-rules";
+import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { IMPORTED_ACCOUNT_DEFAULTS } from "@/lib/import/account-defaults";
 import { rpcImportTransactionBatch, type ImportBatchItem } from "@/lib/import/batch-rpc";
 
@@ -173,14 +180,6 @@ function validateRow(row: ReturnType<typeof normalizeRow>) {
   };
 }
 
-function inferAccountType(name: string) {
-  if (/pożyczone|hipoteczny/i.test(name)) return "loan";
-  if (/xtb|lokaty|obligacje|złoto|inwestycje|pzu/i.test(name)) return "investment";
-  if (/portfel|gotówka/i.test(name)) return "cash";
-  if (/bank|mbank|ing|alior|revolut/i.test(name)) return "bank";
-  return "other";
-}
-
 async function ensureAccounts(supabase: SupabaseClient, userId: string, names: string[]) {
   const { data: existing } = await supabase
     .from("accounts")
@@ -193,7 +192,7 @@ async function ensureAccounts(supabase: SupabaseClient, userId: string, names: s
     .map((name) => ({
       user_id: userId,
       name,
-      account_type: inferAccountType(name),
+      account_type: inferAccountTypeFromName(name),
       default_currency: /euro|eur/i.test(name) ? "EUR" : /usd/i.test(name) ? "USD" : "PLN",
       imported_at: new Date().toISOString(),
       ...IMPORTED_ACCOUNT_DEFAULTS,
@@ -268,8 +267,37 @@ async function loadHashes(supabase: SupabaseClient, userId: string) {
   return hashes;
 }
 
+function resolveImportCategory(
+  row: ReturnType<typeof normalizeRow>,
+  txType: string | undefined,
+  catMap: Map<string, string>,
+  subMap: Map<string, string>,
+  rules: CategorizationRule[]
+): { categoryId: string | null; subcategoryId: string | null } {
+  const isTransfer = txType === "transfer";
+  if (isTransfer) return { categoryId: null, subcategoryId: null };
+
+  let categoryId = row.category ? catMap.get(row.category) ?? null : null;
+  let subcategoryId: string | null = null;
+
+  if (categoryId && row.subcategory) {
+    subcategoryId = subMap.get(`${categoryId}|${row.subcategory}`) ?? null;
+  }
+
+  if (!categoryId && rules.length > 0) {
+    const matchText = [row.details, row.category].filter(Boolean).join(" ");
+    const autoMatch = matchCategoryFromRules(matchText, rules);
+    if (autoMatch) {
+      categoryId = autoMatch.category_id;
+      subcategoryId = autoMatch.subcategory_id;
+    }
+  }
+
+  return { categoryId, subcategoryId };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function processBatch(supabase: SupabaseClient, userId: string, importId: string, batch: any[], accountMap: Map<string, string>, catMap: Map<string, string>, subMap: Map<string, string>, hashes: Set<string>) {
+async function processBatch(supabase: SupabaseClient, userId: string, importId: string, batch: any[], accountMap: Map<string, string>, catMap: Map<string, string>, subMap: Map<string, string>, hashes: Set<string>, rules: CategorizationRule[]) {
   const stats = { imported: 0, skipped: 0, errors: 0, warnings: 0, needsReview: 0 };
   const rpcItems: ImportBatchItem[] = [];
 
@@ -297,10 +325,13 @@ async function processBatch(supabase: SupabaseClient, userId: string, importId: 
     if (validation.warnings.length) stats.warnings++;
     if (validation.needsReview) stats.needsReview++;
 
-    const isTransfer = validation.txType === "transfer";
-    const categoryId = !isTransfer && row.category ? catMap.get(row.category) ?? null : null;
-    const subKey = categoryId && row.subcategory ? `${categoryId}|${row.subcategory}` : null;
-    const subcategoryId = subKey ? subMap.get(subKey) ?? null : null;
+    const { categoryId, subcategoryId } = resolveImportCategory(
+      row,
+      validation.txType,
+      catMap,
+      subMap,
+      rules
+    );
 
     const abs = Math.abs(row.amount);
     const pln = Math.round(abs * row.exchange_rate * 100) / 100;
@@ -460,6 +491,10 @@ export async function runImportFromBuffer(
   }
 
   const hashes = await loadHashes(supabase, userId);
+  const rules = await loadActiveCategorizationRules(
+    supabase as unknown as ServerSupabaseClient,
+    userId
+  );
   const accountMap = await ensureAccounts(supabase, userId, [...accountNames]);
   const { catMap, subMap } = await ensureCategories(
     supabase,
@@ -488,7 +523,7 @@ export async function runImportFromBuffer(
 
   for (let i = 0; i < parsed.length; i += BATCH_SIZE) {
     const batch = parsed.slice(i, i + BATCH_SIZE);
-    const s = await processBatch(supabase, userId, imp.id, batch, accountMap, catMap, subMap, hashes);
+    const s = await processBatch(supabase, userId, imp.id, batch, accountMap, catMap, subMap, hashes, rules);
     totals.imported += s.imported;
     totals.skipped += s.skipped;
     totals.errors += s.errors;

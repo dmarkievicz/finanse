@@ -69,7 +69,7 @@ export function AccountEditForm({ account }: AccountEditFormProps) {
   return (
     <form
       onSubmit={onSubmit}
-      className="mb-6 space-y-4 rounded-xl border border-border bg-card p-5"
+      className="space-y-4 rounded-xl border border-border bg-card p-5"
     >
       <h2 className="text-sm font-semibold text-foreground">Parametry konta</h2>
 

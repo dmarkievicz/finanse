@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { matchCategoryFromRules } from "@/lib/categorization/match-rule";
+import { loadActiveCategorizationRules } from "@/lib/categorization/load-rules";
 import { signedAmountPln } from "@/lib/balances/invariants";
 
 type UserTxType = "income" | "expense" | "transfer";
@@ -22,23 +23,6 @@ interface CreateTransactionBody {
   category_id?: string | null;
   description?: string;
   details?: string;
-}
-
-async function loadActiveRules(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const { data } = await supabase
-    .from("categorization_rules")
-    .select("id, pattern, category_id, subcategory_id, priority")
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .order("priority", { ascending: false });
-
-  return (data ?? []) as {
-    id: string;
-    pattern: string;
-    category_id: string;
-    subcategory_id: string | null;
-    priority: number;
-  }[];
 }
 
 async function getAccount(
@@ -86,7 +70,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Wymagane: kwota" }, { status: 400 });
     }
 
-    const rules = await loadActiveRules(supabase, user.id);
+    const rules = await loadActiveCategorizationRules(supabase, user.id);
     const matchText = [body.details, body.description].filter(Boolean).join(" ");
     const autoMatch = matchCategoryFromRules(matchText, rules);
 

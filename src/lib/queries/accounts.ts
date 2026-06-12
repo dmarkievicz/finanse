@@ -14,9 +14,12 @@ import {
 } from "@/lib/supabase/rpc";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { sortByNamePl } from "@/lib/locale-sort";
+import { isGoldLedgerAccount } from "@/lib/accounts/classification";
+import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
 
 export interface AccountRow extends AccountBalance {
   balance: number;
+  has_card_photo?: boolean;
 }
 
 export interface AccountsPageData {
@@ -29,6 +32,7 @@ export interface AccountsPageData {
 export const ACCOUNT_TYPE_ORDER: AccountType[] = [
   "bank",
   "cash",
+  "credit_card",
   "broker",
   "deposit",
   "investment",
@@ -40,6 +44,7 @@ export const ACCOUNT_TYPE_ORDER: AccountType[] = [
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   bank: "Bank",
   cash: "Gotówka",
+  credit_card: "Karta kredytowa",
   broker: "Broker",
   deposit: "Lokata",
   investment: "Inwestycja",
@@ -60,10 +65,15 @@ export async function fetchAccounts(
     rpcNetWorth(supabase, asOfDate, mode),
   ]);
 
+  const filtered = balances.filter((a) => !isGoldLedgerAccount(a.account_name));
+  const accountIds = filtered.map((a) => a.account_id);
+  const photoByAccount = await fetchAccountCardPhotoFlags(supabase, accountIds);
+
   const accounts: AccountRow[] = sortByNamePl(
-    balances.map((a) => ({
+    filtered.map((a) => ({
       ...a,
       balance: Number(a.balance_pln),
+      has_card_photo: photoByAccount.get(a.account_id) ?? false,
     })),
     (a) => a.account_name
   );
@@ -80,6 +90,28 @@ export async function fetchAccounts(
   );
 
   return { accounts, netWorth, asOfDate, byType };
+}
+
+async function fetchAccountCardPhotoFlags(
+  supabase: ServerSupabaseClient,
+  accountIds: string[]
+): Promise<Map<string, boolean>> {
+  const map = new Map<string, boolean>();
+  if (accountIds.length === 0) return map;
+
+  const withMeta = await supabase.from("accounts").select("id, metadata").in("id", accountIds);
+
+  if (withMeta.error && /metadata/i.test(withMeta.error.message ?? "")) {
+    return map;
+  }
+  if (withMeta.error) throw withMeta.error;
+
+  const rows = (withMeta.data ?? []) as { id: string; metadata: Record<string, unknown> | null }[];
+  for (const row of rows) {
+    const meta = parseAccountMetadata(row.metadata);
+    map.set(row.id, Boolean(meta.card_photo_storage_path));
+  }
+  return map;
 }
 
 export interface AccountsManagePageData {
@@ -132,19 +164,42 @@ export async function fetchAccountName(
   return account?.name ?? null;
 }
 
+const ACCOUNT_DETAIL_COLUMNS =
+  "id, user_id, name, account_number, account_type, default_currency, is_active, lifecycle_status, show_on_dashboard, include_in_net_worth, needs_review, imported_at, notes, created_at, updated_at, deleted_at";
+
+const ACCOUNT_DETAIL_COLUMNS_WITH_METADATA = `${ACCOUNT_DETAIL_COLUMNS}, metadata`;
+
 export async function fetchAccountDetail(
   supabase: ServerSupabaseClient,
   accountId: string
 ): Promise<Account | null> {
-  const { data, error } = await supabase
+  let data: Record<string, unknown> | null = null;
+  let error: { message?: string; code?: string } | null = null;
+
+  const withMeta = await supabase
     .from("accounts")
-    .select(
-      "id, user_id, name, account_number, account_type, default_currency, is_active, lifecycle_status, show_on_dashboard, include_in_net_worth, needs_review, imported_at, notes, created_at, updated_at, deleted_at"
-    )
+    .select(ACCOUNT_DETAIL_COLUMNS_WITH_METADATA)
     .eq("id", accountId)
     .is("deleted_at", null)
     .maybeSingle();
 
+  data = withMeta.data as Record<string, unknown> | null;
+  error = withMeta.error;
+
+  if (error && /metadata/i.test(error.message ?? "")) {
+    const fallback = await supabase
+      .from("accounts")
+      .select(ACCOUNT_DETAIL_COLUMNS)
+      .eq("id", accountId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    data = fallback.data as Record<string, unknown> | null;
+    error = fallback.error;
+  }
+
   if (error) throw error;
-  return (data as Account | null) ?? null;
+  if (!data) return null;
+
+  const row = data as unknown as Account & { metadata?: Record<string, unknown> };
+  return { ...row, metadata: row.metadata ?? {} };
 }
