@@ -121,7 +121,17 @@ function normalizeRow(raw: Record<string, unknown>, rowNumber: number) {
 
 function computeHash(row: ReturnType<typeof normalizeRow>) {
   const norm = (v: unknown) => asString(v).toLowerCase().replace(/\s+/g, " ").trim();
-  const payload = [row.date, row.type, row.amount, row.currency, row.source_account, row.target_account, row.details]
+  const payload = [
+    row.date,
+    row.type,
+    row.amount,
+    row.currency,
+    row.source_account,
+    row.target_account,
+    row.details,
+    row.category,
+    row.subcategory,
+  ]
     .map(norm)
     .join("|");
   return createHash("sha256").update(payload).digest("hex");

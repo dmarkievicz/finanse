@@ -119,6 +119,8 @@ function computeImportHash(row) {
     row.source_account,
     row.target_account,
     row.details,
+    row.category,
+    row.subcategory,
   ]
     .map(normalizeForHash)
     .join("|");

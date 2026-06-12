@@ -138,6 +138,8 @@ function computeImportHash(row) {
     row.source_account,
     row.target_account,
     row.details,
+    row.category,
+    row.subcategory,
   ]
     .map(normalizeForHash)
     .join("|");
@@ -410,6 +412,40 @@ async function loadExistingHashes(supabase, userId) {
   return hashes;
 }
 
+async function loadExistingRowNumbers(supabase, userId) {
+  const rowNumbers = new Set();
+  let from = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("import_rows")
+      .select("row_number")
+      .eq("user_id", userId)
+      .range(from, from + pageSize - 1);
+
+    if (error) throw new Error(`Błąd pobierania numerów wierszy: ${error.message}`);
+    if (!data?.length) break;
+    for (const row of data) rowNumbers.add(row.row_number);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return rowNumbers;
+}
+
+function markDuplicateInFile(items) {
+  const seen = new Set();
+  for (const item of items) {
+    if (seen.has(item.importHash)) {
+      item.duplicateInFile = true;
+    } else {
+      item.duplicateInFile = false;
+      seen.add(item.importHash);
+    }
+  }
+}
+
 async function ensureAccounts(supabase, userId, accountNames) {
   const { data: existing, error: loadError } = await supabase
     .from("accounts")
@@ -622,6 +658,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const force = args.includes("--force");
+  const backfill = args.includes("--backfill");
   const filePath = findExcelFile(args[0]);
 
   if (!filePath || !existsSync(filePath)) {
@@ -642,6 +679,7 @@ async function main() {
   console.log(`📂 Plik: ${filePath}`);
   console.log(`👤 Użytkownik: ${userEmail}`);
   if (dryRun) console.log("🔍 Tryb dry-run — bez zapisu do bazy\n");
+  if (backfill) console.log("📥 Tryb backfill — tylko wiersze bez rekordu import_rows\n");
 
   const fileBuffer = readFileSync(filePath);
   const fileHash = createHash("sha256").update(fileBuffer).digest("hex");
@@ -657,20 +695,31 @@ async function main() {
     return { row, validation, importHash };
   });
 
-  const seenInFile = new Set();
-  for (const item of parsed) {
-    if (seenInFile.has(item.importHash)) {
-      item.duplicateInFile = true;
-    } else {
-      seenInFile.add(item.importHash);
-    }
+  markDuplicateInFile(parsed);
+
+  let itemsToProcess = parsed;
+
+  const supabase = createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const userId = env.IMPORT_USER_ID || (await resolveUserId(supabase, userEmail));
+  console.log(`\n🔑 user_id: ${userId}`);
+
+  if (backfill) {
+    const existingRowNumbers = await loadExistingRowNumbers(supabase, userId);
+    itemsToProcess = parsed.filter((item) => !existingRowNumbers.has(item.row.row_number));
+    markDuplicateInFile(itemsToProcess);
+    console.log(
+      `📥 Backfill: ${itemsToProcess.length} wierszy bez import_rows (z ${parsed.length} w pliku)`
+    );
   }
 
   const accountNames = new Set([CASH_ACCOUNT]);
   const categoryMap = new Map();
   const subcategorySet = new Set();
 
-  for (const { row, validation } of parsed) {
+  for (const { row, validation } of itemsToProcess) {
     if (validation.hasErrors) continue;
 
     if (validation.txType === "income" && row.target_account) accountNames.add(row.target_account);
@@ -701,12 +750,13 @@ async function main() {
   });
 
   const preview = {
+    mode: backfill ? "backfill" : "full",
     accounts: [...accountNames].filter(Boolean).sort(),
     categories: uniqueCategories.map((c) => c.name).sort(),
-    errors: parsed.filter((p) => p.validation.hasErrors).length,
-    needsReview: parsed.filter((p) => p.validation.needsReview && !p.validation.hasErrors).length,
-    importable: parsed.filter((p) => !p.validation.hasErrors).length,
-    duplicates_in_file: parsed.filter((p) => p.duplicateInFile).length,
+    errors: itemsToProcess.filter((p) => p.validation.hasErrors).length,
+    needsReview: itemsToProcess.filter((p) => p.validation.needsReview && !p.validation.hasErrors).length,
+    importable: itemsToProcess.filter((p) => !p.validation.hasErrors && !p.duplicateInFile).length,
+    duplicates_in_file: itemsToProcess.filter((p) => p.duplicateInFile).length,
   };
 
   console.log(`\n📋 Konta do utworzenia/użycia: ${preview.accounts.length}`);
@@ -719,24 +769,17 @@ async function main() {
   if (dryRun) {
     const outDir = join(ROOT, "data", "processed");
     mkdirSync(outDir, { recursive: true });
-    const reportPath = join(outDir, "import-preview.json");
+    const reportPath = join(outDir, backfill ? "import-backfill-preview.json" : "import-preview.json");
     writeFileSync(
       reportPath,
-      JSON.stringify({ filePath, fileHash, rowCount: rows.length, preview }, null, 2),
+      JSON.stringify({ filePath, fileHash, rowCount: rows.length, processed_rows: itemsToProcess.length, preview }, null, 2),
       "utf-8"
     );
     console.log(`\n✅ Podgląd zapisany: ${reportPath}`);
     return;
   }
 
-  const supabase = createClient(url, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  const userId = env.IMPORT_USER_ID || (await resolveUserId(supabase, userEmail));
-  console.log(`\n🔑 user_id: ${userId}`);
-
-  if (!force) {
+  if (!force && !backfill) {
     const { data: prior } = await supabase
       .from("imports")
       .select("id, status, imported_rows")
@@ -791,8 +834,8 @@ async function main() {
   };
 
   const batches = [];
-  for (let i = 0; i < parsed.length; i += BATCH_SIZE) {
-    batches.push(parsed.slice(i, i + BATCH_SIZE));
+  for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
+    batches.push(itemsToProcess.slice(i, i + BATCH_SIZE));
   }
 
   for (let i = 0; i < batches.length; i++) {
@@ -833,7 +876,9 @@ async function main() {
   const report = {
     import_id: importId,
     filename: basename(filePath),
+    mode: backfill ? "backfill" : "full",
     total_rows: rows.length,
+    processed_rows: itemsToProcess.length,
     imported: totals.imported,
     skipped_duplicates: totals.skipped,
     errors: totals.errors,
@@ -849,7 +894,7 @@ async function main() {
 
   const outDir = join(ROOT, "data", "processed");
   mkdirSync(outDir, { recursive: true });
-  const reportPath = join(outDir, "import-report.json");
+  const reportPath = join(outDir, backfill ? "import-backfill-report.json" : "import-report.json");
   writeFileSync(reportPath, JSON.stringify(report, null, 2), "utf-8");
 
   console.log("\n✅ Import zakończony");
