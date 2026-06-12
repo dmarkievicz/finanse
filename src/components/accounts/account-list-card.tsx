@@ -35,6 +35,7 @@ export function AccountListCard({ account }: AccountListCardProps) {
         accountType={type}
         accountName={account.account_name}
         hasPhoto={account.has_card_photo}
+        photoUrl={account.photo_url}
         size="md"
       />
 

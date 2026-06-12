@@ -16,10 +16,12 @@ import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { sortByNamePl } from "@/lib/locale-sort";
 import { isGoldLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
+import { fetchAccountPhotoUrls } from "@/lib/queries/account-photos";
 
 export interface AccountRow extends AccountBalance {
   balance: number;
   has_card_photo?: boolean;
+  photo_url?: string | null;
 }
 
 export interface AccountsPageData {
@@ -67,13 +69,19 @@ export async function fetchAccounts(
 
   const filtered = balances.filter((a) => !isGoldLedgerAccount(a.account_name));
   const accountIds = filtered.map((a) => a.account_id);
-  const photoByAccount = await fetchAccountCardPhotoFlags(supabase, accountIds);
+  const photoFlags = await fetchAccountCardPhotoFlags(supabase, accountIds);
+  const photoUrls = await fetchAccountPhotoUrls(
+    supabase,
+    accountIds.filter((id) => photoFlags.get(id))
+  ).catch(() => new Map<string, string>());
+  const photoByAccount = photoFlags;
 
   const accounts: AccountRow[] = sortByNamePl(
     filtered.map((a) => ({
       ...a,
       balance: Number(a.balance_pln),
       has_card_photo: photoByAccount.get(a.account_id) ?? false,
+      photo_url: photoUrls.get(a.account_id) ?? null,
     })),
     (a) => a.account_name
   );

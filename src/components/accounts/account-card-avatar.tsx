@@ -18,6 +18,7 @@ interface AccountCardAvatarProps {
   accountType: AccountType;
   accountName: string;
   hasPhoto?: boolean;
+  photoUrl?: string | null;
   size?: "sm" | "md";
 }
 
@@ -35,15 +36,21 @@ export function AccountCardAvatar({
   accountType,
   accountName,
   hasPhoto = false,
+  photoUrl = null,
   size = "md",
 }: AccountCardAvatarProps) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(hasPhoto);
+  const [url, setUrl] = useState<string | null>(photoUrl ?? null);
+  const [loading, setLoading] = useState(hasPhoto && !photoUrl);
 
   const dim = size === "sm" ? "h-9 w-14" : "h-11 w-[4.5rem]";
   const Icon = typeIcon[accountType] ?? Landmark;
 
   useEffect(() => {
+    if (photoUrl) {
+      setUrl(photoUrl);
+      setLoading(false);
+      return;
+    }
     if (!hasPhoto) {
       setLoading(false);
       setUrl(null);
@@ -66,7 +73,7 @@ export function AccountCardAvatar({
     return () => {
       cancelled = true;
     };
-  }, [accountId, hasPhoto]);
+  }, [accountId, hasPhoto, photoUrl]);
 
   return (
     <div

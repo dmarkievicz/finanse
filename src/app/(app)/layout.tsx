@@ -1,11 +1,16 @@
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { createClient } from "@/lib/supabase/server";
-import { rpcNeedsReviewCount } from "@/lib/supabase/rpc";
+import { getReviewCountForLayout } from "@/lib/layout/review-count";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
-  const reviewCount = await rpcNeedsReviewCount(supabase);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const reviewCount = user
+    ? await getReviewCountForLayout(supabase, user.id)
+    : 0;
 
   return (
     <div className="flex min-h-screen">

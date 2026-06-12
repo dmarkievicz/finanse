@@ -193,7 +193,7 @@ function formatTransactionAmount(
   };
 }
 
-function buildInvestmentsSection(
+export function buildInvestmentsSection(
   instruments: InstrumentRow[],
   accountInvestments: Awaited<ReturnType<typeof fetchInvestments>>
 ): DashboardInvestments {
@@ -292,10 +292,24 @@ export async function fetchDashboardData(
   supabase: ServerSupabaseClient,
   period: DashboardPeriod
 ): Promise<DashboardData> {
-  const { current, previous } = period;
-  const asOfDate = current.to;
   const settings = await fetchUserSettings(supabase);
   const mode: BalanceMode = balanceMode(settings);
+
+  const {
+    bundleToDashboardCore,
+    fetchDashboardInvestments,
+    rpcDashboardBundle,
+  } = await import("@/lib/queries/dashboard-bundle");
+
+  const bundle = await rpcDashboardBundle(supabase, period, mode);
+  if (bundle) {
+    const core = bundleToDashboardCore(bundle, period);
+    const investments = await fetchDashboardInvestments(supabase, period.current.to);
+    return { ...core, investments };
+  }
+
+  const { current, previous } = period;
+  const asOfDate = current.to;
   const prevAsOfDate = previous.to;
 
   const [
