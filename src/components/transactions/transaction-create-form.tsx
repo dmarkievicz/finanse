@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import { TRANSACTION_CURRENCIES } from "@/lib/transactions/currencies";
+import { useNbpRate } from "@/lib/hooks/use-nbp-rate";
 
 type FormType = "expense" | "income" | "transfer";
 
@@ -30,13 +31,22 @@ function CurrencyRateFields({
   onCurrency,
   onRate,
   idPrefix,
+  date,
 }: {
   currency: string;
   exchangeRate: string;
   onCurrency: (v: string) => void;
   onRate: (v: string) => void;
   idPrefix: string;
+  date: string;
 }) {
+  const nbp = useNbpRate(currency, date, currency !== "PLN");
+
+  useEffect(() => {
+    if (currency !== "PLN" && nbp.rate !== "1") onRate(nbp.rate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nbp.rate, currency]);
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div>
@@ -70,6 +80,11 @@ function CurrencyRateFields({
           required={currency !== "PLN"}
           className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm disabled:bg-slate-50"
         />
+        {currency !== "PLN" && (
+          <p className="mt-1 text-[11px] text-muted">
+            {nbp.loading ? "Pobieranie NBP…" : nbp.source ? `Źródło: ${nbp.source.toUpperCase()}` : ""}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -291,6 +306,7 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
             <div className="sm:col-span-2">
               <CurrencyRateFields
                 idPrefix="tx"
+                date={date}
                 currency={currency}
                 exchangeRate={exchangeRate}
                 onCurrency={handleCurrencyChange}
@@ -359,6 +375,7 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
                 <p className="text-xs font-medium text-muted">Strona źródłowa</p>
                 <CurrencyRateFields
                   idPrefix="src"
+                  date={date}
                   currency={sourceCurrency}
                   exchangeRate={sourceRate}
                   onCurrency={handleSourceCurrencyChange}
@@ -371,6 +388,7 @@ export function TransactionCreateForm({ accounts, categories }: TransactionCreat
                 <p className="text-xs font-medium text-muted">Strona docelowa</p>
                 <CurrencyRateFields
                   idPrefix="tgt"
+                  date={date}
                   currency={targetCurrency}
                   exchangeRate={targetRate}
                   onCurrency={handleTargetCurrencyChange}

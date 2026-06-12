@@ -78,7 +78,7 @@ export function DashboardGoalCard({
             </p>
           </div>
           <div>
-            <p className="text-[11px] text-slate-400">Mies. nadwyżka</p>
+            <p className="text-[11px] text-slate-400">Wymagane / mies.</p>
             <p className="text-[15px] font-semibold tabular-nums text-slate-800">
               {metrics.monthlyRequired != null ? formatPln(metrics.monthlyRequired) : "—"}
             </p>
@@ -93,7 +93,15 @@ export function DashboardGoalCard({
           {dateLabel && (
             <span className="inline-flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5 text-slate-400" />
-              {dateLabel}
+              Cel: {dateLabel}
+            </span>
+          )}
+          {metrics.projectedDate && metrics.status !== "completed" && (
+            <span className="inline-flex items-center gap-1">
+              Prognoza:{" "}
+              {new Intl.DateTimeFormat("pl-PL", { month: "short", year: "numeric" }).format(
+                new Date(metrics.projectedDate + "T00:00:00")
+              )}
             </span>
           )}
         </div>

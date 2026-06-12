@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Plus } from "lucide-react";
 import { TRANSACTION_CURRENCIES } from "@/lib/transactions/currencies";
+import { useNbpRate } from "@/lib/hooks/use-nbp-rate";
 
 type QuickType = "expense" | "income";
 
@@ -36,6 +37,8 @@ export function QuickTransactionForm({ accounts, categories }: QuickTransactionF
     (c) => c.type === type || c.type === "both"
   );
 
+  const nbp = useNbpRate(currency, date, currency !== "PLN");
+
   useEffect(() => {
     const acc = accounts.find((a) => a.id === accountId);
     if (acc?.default_currency) {
@@ -43,6 +46,10 @@ export function QuickTransactionForm({ accounts, categories }: QuickTransactionF
       if (acc.default_currency === "PLN") setExchangeRate("1");
     }
   }, [accountId, accounts]);
+
+  useEffect(() => {
+    if (currency !== "PLN" && nbp.rate !== "1") setExchangeRate(nbp.rate);
+  }, [nbp.rate, currency]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

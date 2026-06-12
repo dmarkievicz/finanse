@@ -2,6 +2,8 @@ import { PageHeader } from "@/components/page-header";
 import { GoalForm } from "@/components/settings/goal-form";
 import { AnalysisStartForm } from "@/components/settings/analysis-start-form";
 import { ExportPanel } from "@/components/settings/export-panel";
+import { ExchangeRatesPanel } from "@/components/settings/exchange-rates-panel";
+import { ReportsPanel } from "@/components/settings/reports-panel";
 import { AuditHistory } from "@/components/audit/audit-history";
 import { fetchRecentAudit } from "@/lib/queries/audit";
 import { CategorizationRulesForm } from "@/components/settings/categorization-rules-form";
@@ -53,6 +55,10 @@ export default async function SettingsPage() {
         </div>
 
         <ExportPanel />
+
+        <ReportsPanel />
+
+        <ExchangeRatesPanel />
 
         <AuditHistory
           rows={recentAudit}

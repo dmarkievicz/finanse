@@ -1,15 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchDashboardData } from "@/lib/queries/dashboard";
 import { fetchLookupData } from "@/lib/queries/transaction-detail";
+import { fetchUserGoal } from "@/lib/queries/goals";
+import { fetchPortfolioSnapshots } from "@/lib/queries/snapshots";
 import { parseDashboardPeriod } from "@/lib/dashboard/period";
+import { computeGoalMetrics } from "@/lib/dashboard/goal-metrics";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
 import { DashboardKpiGrid } from "@/components/dashboard/dashboard-kpi-grid";
+import { DashboardGoalCard } from "@/components/dashboard/dashboard-goal-card";
 import { DashboardCategoryChart } from "@/components/dashboard/dashboard-category-chart";
 import { DashboardAccountsPanel } from "@/components/dashboard/dashboard-accounts-panel";
 import { DashboardInvestmentsPanel } from "@/components/dashboard/dashboard-investments-panel";
 import { DashboardCurrencyPanel } from "@/components/dashboard/dashboard-currency-panel";
 import { DashboardRecentTransactions } from "@/components/dashboard/dashboard-recent-transactions";
 import { DashboardSection } from "@/components/dashboard/dashboard-ui";
+import { WealthHistoryPanel } from "@/components/snapshots/wealth-history-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,10 +27,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const supabase = await createClient();
   const period = parseDashboardPeriod(params);
 
-  const [data, lookup] = await Promise.all([
+  const [data, lookup, snapshots] = await Promise.all([
     fetchDashboardData(supabase, period),
     fetchLookupData(supabase),
+    fetchPortfolioSnapshots(supabase, 24),
   ]);
+
+  const goal = await fetchUserGoal(supabase, data.kpis.netWorth, data.kpis.liquidAssets);
+  const goalMetrics = computeGoalMetrics(
+    goal.current,
+    goal.target_amount,
+    goal.target_date,
+    data.kpis.surplus
+  );
 
   const activeAccounts = lookup.accounts
     .filter((a) => a.lifecycle_status === "active")
@@ -58,6 +72,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           periodFrom={period.current.from}
           periodTo={period.current.to}
         />
+
+        <div className="grid gap-3 lg:grid-cols-12">
+          <div className="lg:col-span-5">
+            <DashboardGoalCard
+              name={goal.name}
+              current={goal.current}
+              target={goal.target_amount}
+              targetDate={goal.target_date}
+              metrics={goalMetrics}
+            />
+          </div>
+          <div className="lg:col-span-7">
+            <WealthHistoryPanel snapshots={snapshots} />
+          </div>
+        </div>
 
         <DashboardSection title="Wydatki">
           <DashboardCategoryChart
