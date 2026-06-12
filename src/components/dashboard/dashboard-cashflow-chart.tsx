@@ -100,8 +100,8 @@ export function DashboardCashflowChart({
   return (
     <DashboardPanel>
       <DashboardPanelHeader
-        title="Przepływy pieniężne"
-        subtitle="Przychody i wydatki miesięcznie"
+        title="Cashflow"
+        subtitle="Przychody, wydatki i nadwyżka miesięcznie"
         action={rangeToggle}
       />
 

@@ -1,11 +1,12 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import type { DashboardPeriod } from "@/lib/dashboard/period";
 import type { BalanceMode } from "@/lib/supabase/rpc";
-import type {
-  DashboardAccountRow,
-  DashboardData,
-  DashboardKpi,
-  RecentTransactionRow,
+import {
+  buildCategorySlices,
+  type DashboardAccountRow,
+  type DashboardData,
+  type DashboardKpi,
+  type RecentTransactionRow,
 } from "@/lib/queries/dashboard";
 import { fetchInvestments } from "@/lib/queries/investments";
 import { fetchInstrumentsPortfolio } from "@/lib/queries/instruments";
@@ -156,61 +157,6 @@ function calcRateDelta(current: number, previous: number): number | null {
   return Math.round((current - previous) * 10) / 10;
 }
 
-const CATEGORY_COLORS = [
-  "#94a3b8",
-  "#6ee7b7",
-  "#93c5fd",
-  "#c4b5fd",
-  "#fcd34d",
-  "#fda4af",
-];
-
-function buildCategorySlices(
-  current: CategoryBreakdown[],
-  previous: CategoryBreakdown[]
-) {
-  const total = current.reduce((sum, r) => sum + Number(r.total_pln), 0);
-  if (total === 0) return { slices: [], total: 0 };
-
-  const prevMap = new Map(
-    previous.map((r) => [r.category_id ?? "none", Number(r.total_pln)])
-  );
-
-  const top = current.slice(0, 5);
-  const rest = current.slice(5);
-  const restTotal = rest.reduce((sum, r) => sum + Number(r.total_pln), 0);
-
-  const slices = top.map((r, i) => {
-    const id = r.category_id ?? "none";
-    const cur = Number(r.total_pln);
-    const prev = prevMap.get(id) ?? 0;
-    let trendPct: number | null = null;
-    if (prev > 0) trendPct = Math.round(((cur - prev) / prev) * 1000) / 10;
-
-    return {
-      name: r.category_name ?? "Bez kategorii",
-      total: cur,
-      pct: Math.round((cur / total) * 1000) / 10,
-      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-      categoryId: r.category_id,
-      trendPct,
-    };
-  });
-
-  if (restTotal > 0) {
-    slices.push({
-      name: "Pozostałe",
-      total: restTotal,
-      pct: Math.round((restTotal / total) * 1000) / 10,
-      color: CATEGORY_COLORS[5],
-      categoryId: null,
-      trendPct: null,
-    });
-  }
-
-  return { slices, total };
-}
-
 export async function rpcDashboardBundle(
   supabase: ServerSupabaseClient,
   period: DashboardPeriod,
@@ -249,6 +195,7 @@ export function bundleToDashboardCore(
   | "asOfDate"
   | "kpis"
   | "categoryBreakdown"
+  | "categoryBreakdownFull"
   | "categoryTotal"
   | "accounts"
   | "recentTransactions"
@@ -284,6 +231,11 @@ export function bundleToDashboardCore(
   const { slices: categoryBreakdown, total: categoryTotal } = buildCategorySlices(
     bundle.category_current,
     bundle.category_previous
+  );
+  const { slices: categoryBreakdownFull } = buildCategorySlices(
+    bundle.category_current,
+    bundle.category_previous,
+    999
   );
 
   const accounts: DashboardAccountRow[] = bundle.accounts
@@ -328,6 +280,7 @@ export function bundleToDashboardCore(
     asOfDate: period.current.to,
     kpis,
     categoryBreakdown,
+    categoryBreakdownFull,
     categoryTotal,
     accounts,
     recentTransactions,

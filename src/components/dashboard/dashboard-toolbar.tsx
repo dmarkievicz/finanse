@@ -12,6 +12,7 @@ const PERIOD_OPTIONS: { value: DashboardPeriodPreset; label: string }[] = [
   { value: "this_month", label: "Ten miesiąc" },
   { value: "prev_month", label: "Poprzedni miesiąc" },
   { value: "this_year", label: "Ten rok" },
+  { value: "last_12_months", label: "Ostatnie 12 miesięcy" },
   { value: "custom", label: "Zakres własny" },
 ];
 

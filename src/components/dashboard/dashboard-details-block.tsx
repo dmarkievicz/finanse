@@ -82,13 +82,14 @@ export async function DashboardDetailsBlock({ searchParams }: DashboardDetailsBl
           />
         </div>
         <div className="lg:col-span-7">
-          <WealthHistoryPanel snapshots={snapshots} />
+          <WealthHistoryPanel snapshots={snapshots} currentNetWorth={core.kpis.netWorth} />
         </div>
       </div>
 
       <DashboardSection title="Wydatki">
         <DashboardCategoryChart
           categories={core.categoryBreakdown}
+          categoriesFull={core.categoryBreakdownFull ?? core.categoryBreakdown}
           total={core.categoryTotal}
           periodFrom={period.current.from}
           periodTo={period.current.to}

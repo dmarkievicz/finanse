@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import type { DashboardAccountRow } from "@/lib/queries/dashboard";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
 import { isGoldLedgerAccount, isLiabilityAccountType } from "@/lib/accounts/classification";
+import { AccountIcon } from "@/components/dashboard/account-icon";
 import { formatPln } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -15,13 +16,9 @@ import {
   dashboardLink,
 } from "@/components/dashboard/dashboard-ui";
 
-type AccountFilter =
-  | "active"
-  | "archived"
-  | "hidden"
-  | "credit_card"
-  | "liabilities"
-  | "investment";
+type AccountFilter = "active" | "credit_card" | "savings" | "investment" | "liabilities";
+
+const MAX_VISIBLE = 7;
 
 interface DashboardAccountsPanelProps {
   accounts: DashboardAccountRow[];
@@ -41,23 +38,29 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
             !isLiabilityAccountType(a.account_type)
         );
         break;
-      case "archived":
-        list = list.filter((a) => a.lifecycle_status === "archived");
-        break;
-      case "hidden":
-        list = list.filter((a) => !a.show_on_dashboard && a.lifecycle_status === "active");
-        break;
       case "credit_card":
-        list = list.filter((a) => a.account_type === "credit_card");
+        list = list.filter((a) => a.account_type === "credit_card" && a.lifecycle_status === "active");
         break;
-      case "liabilities":
+      case "savings":
         list = list.filter(
-          (a) => isLiabilityAccountType(a.account_type) || a.balance_pln < 0
+          (a) =>
+            a.lifecycle_status === "active" &&
+            (a.account_type === "deposit" || /oszczęd|lokat/i.test(a.account_name))
         );
         break;
       case "investment":
-        list = list.filter((a) =>
-          ["investment", "broker", "deposit"].includes(a.account_type)
+        list = list.filter(
+          (a) =>
+            a.lifecycle_status === "active" &&
+            ["investment", "broker", "deposit"].includes(a.account_type) &&
+            !/oszczęd|lokat/i.test(a.account_name)
+        );
+        break;
+      case "liabilities":
+        list = list.filter(
+          (a) =>
+            isLiabilityAccountType(a.account_type) ||
+            (a.balance_pln < 0 && a.lifecycle_status === "active")
         );
         break;
     }
@@ -67,20 +70,21 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
   const filters: { id: AccountFilter; label: string }[] = [
     { id: "active", label: "Aktywne" },
     { id: "credit_card", label: "Karty" },
-    { id: "archived", label: "Archiwum" },
-    { id: "hidden", label: "Ukryte" },
+    { id: "savings", label: "Oszczędności" },
+    { id: "investment", label: "Inwestycyjne" },
     { id: "liabilities", label: "Długi" },
-    { id: "investment", label: "Inwest." },
   ];
 
+  const visible = filtered.slice(0, MAX_VISIBLE);
+
   return (
-    <DashboardPanel>
+    <DashboardPanel className="h-full">
       <DashboardPanelHeader
         title="Konta"
         subtitle="Salda w PLN"
         action={
           <Link href="/accounts" className={`inline-flex items-center gap-1 ${dashboardLink}`}>
-            Wszystkie
+            Zobacz wszystkie
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         }
@@ -104,17 +108,18 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {visible.length === 0 ? (
         <DashboardEmpty>Brak kont w tym widoku</DashboardEmpty>
       ) : (
-        <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto">
-          {filtered.slice(0, 10).map((a) => (
+        <ul className="divide-y divide-slate-100">
+          {visible.map((a) => (
             <li key={a.account_id}>
               <Link
                 href={`/accounts/${a.account_id}`}
-                className="flex items-center justify-between gap-2 py-2.5 transition hover:bg-slate-50/80 -mx-2 px-2 rounded-lg"
+                className="flex items-center gap-3 py-2.5 transition hover:bg-slate-50/80 -mx-2 px-2 rounded-lg"
               >
-                <div className="min-w-0">
+                <AccountIcon accountType={a.account_type} accountName={a.account_name} />
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium text-slate-800">{a.account_name}</p>
                   <p className="text-[11px] text-slate-400">
                     {ACCOUNT_TYPE_LABELS[a.account_type as keyof typeof ACCOUNT_TYPE_LABELS] ??
@@ -131,22 +136,20 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
                   >
                     {formatPln(a.balance_pln)}
                   </p>
-                  {a.balanceChange != null && a.balanceChange !== 0 && (
-                    <p
-                      className={cn(
-                        "text-[10px] tabular-nums",
-                        a.balanceChange > 0 ? "text-emerald-500" : "text-rose-500"
-                      )}
-                    >
-                      {a.balanceChange > 0 ? "+" : ""}
-                      {formatPln(a.balanceChange)}
-                    </p>
-                  )}
                 </div>
               </Link>
             </li>
           ))}
         </ul>
+      )}
+
+      {filtered.length > MAX_VISIBLE && (
+        <p className="mt-2 text-center text-[11px] text-slate-400">
+          +{filtered.length - MAX_VISIBLE} więcej ·{" "}
+          <Link href="/accounts" className="font-medium text-slate-600 hover:text-slate-800">
+            pełna lista
+          </Link>
+        </p>
       )}
     </DashboardPanel>
   );

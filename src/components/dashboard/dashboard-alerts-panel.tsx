@@ -17,7 +17,7 @@ export function DashboardAlertsPanel({ alerts }: DashboardAlertsPanelProps) {
   if (alerts.length === 0) {
     return (
       <DashboardPanel className="h-full">
-        <DashboardPanelHeader title="Jakość danych" subtitle="Brak problemów" />
+        <DashboardPanelHeader title="Alerty / Jakość danych" subtitle="Brak problemów" />
         <DashboardEmpty>Wszystko wygląda w porządku</DashboardEmpty>
       </DashboardPanel>
     );
@@ -26,7 +26,7 @@ export function DashboardAlertsPanel({ alerts }: DashboardAlertsPanelProps) {
   return (
     <DashboardPanel className="h-full">
       <DashboardPanelHeader
-        title="Do sprawdzenia"
+        title="Alerty / Jakość danych"
         subtitle={`${alerts.length} ${alerts.length === 1 ? "alert" : "alerty"}`}
       />
       <ul className="divide-y divide-slate-100">

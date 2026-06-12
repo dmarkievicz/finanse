@@ -9,11 +9,13 @@ import {
 } from "lucide-react";
 import { SummaryCard, SummaryCardGrid, type SummaryCardTone } from "@/components/layout";
 import type { DashboardKpi } from "@/lib/queries/dashboard";
-import { formatKpiDelta } from "@/lib/queries/dashboard";
+import { formatKpiDelta, formatKpiPercentChange } from "@/lib/queries/dashboard";
+import { previousPeriodCompareLabel, type DashboardPeriod } from "@/lib/dashboard/period";
 import { formatPln, formatPercent } from "@/lib/format";
 
 interface DashboardKpiGridProps {
   kpis: DashboardKpi;
+  period: DashboardPeriod;
   periodFrom: string;
   periodTo: string;
 }
@@ -30,13 +32,24 @@ interface KpiItem {
   mutedValue?: boolean;
 }
 
-export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGridProps) {
+function previousValue(current: number, change: number | null): number | null {
+  if (change == null) return null;
+  return current - change;
+}
+
+export function DashboardKpiGrid({ kpis, period, periodFrom, periodTo }: DashboardKpiGridProps) {
+  const compareLabel = previousPeriodCompareLabel(period);
+
   const items: KpiItem[] = [
     {
       label: "Majątek netto",
       value: formatPln(kpis.netWorth),
       sub: "Aktywa − zobowiązania",
-      delta: formatKpiDelta(kpis.netWorthChange),
+      delta: formatKpiPercentChange(
+        kpis.netWorth,
+        previousValue(kpis.netWorth, kpis.netWorthChange),
+        compareLabel
+      ),
       deltaPositive: (kpis.netWorthChange ?? 0) >= 0,
       icon: Wallet,
       tone: "primary",
@@ -45,8 +58,12 @@ export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGri
     {
       label: "Aktywa płynne",
       value: formatPln(kpis.liquidAssets),
-      sub: "Gotówka i bank",
-      delta: formatKpiDelta(kpis.liquidAssetsChange),
+      sub: "Gotówka i rachunki",
+      delta: formatKpiPercentChange(
+        kpis.liquidAssets,
+        previousValue(kpis.liquidAssets, kpis.liquidAssetsChange),
+        compareLabel
+      ),
       deltaPositive: (kpis.liquidAssetsChange ?? 0) >= 0,
       icon: Droplets,
       tone: "info",
@@ -55,8 +72,12 @@ export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGri
     {
       label: "Przychody",
       value: formatPln(kpis.income),
-      sub: "W okresie",
-      delta: formatKpiDelta(kpis.incomeChange),
+      sub: "Wpływy w okresie",
+      delta: formatKpiPercentChange(
+        kpis.income,
+        previousValue(kpis.income, kpis.incomeChange),
+        compareLabel
+      ),
       deltaPositive: (kpis.incomeChange ?? 0) >= 0,
       icon: TrendingUp,
       tone: "positive",
@@ -66,8 +87,12 @@ export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGri
     {
       label: "Wydatki",
       value: formatPln(kpis.expenses),
-      sub: "W okresie",
-      delta: formatKpiDelta(kpis.expensesChange),
+      sub: "Wydatki w okresie",
+      delta: formatKpiPercentChange(
+        kpis.expenses,
+        previousValue(kpis.expenses, kpis.expensesChange),
+        compareLabel
+      ),
       deltaPositive: (kpis.expensesChange ?? 0) <= 0,
       icon: TrendingDown,
       tone: "negative",
@@ -78,7 +103,11 @@ export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGri
       label: "Nadwyżka",
       value: formatPln(kpis.surplus),
       sub: "Przychody − wydatki",
-      delta: formatKpiDelta(kpis.surplusChange),
+      delta: formatKpiPercentChange(
+        kpis.surplus,
+        previousValue(kpis.surplus, kpis.surplusChange),
+        compareLabel
+      ),
       deltaPositive: (kpis.surplusChange ?? 0) >= 0,
       icon: Scale,
       tone: kpis.surplus >= 0 ? "positive" : "negative",
@@ -86,10 +115,13 @@ export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGri
       mutedValue: kpis.surplus === 0,
     },
     {
-      label: "Oszczędności",
+      label: "Stopa oszczędności",
       value: formatPercent(kpis.savingsRate),
       sub: "Nadwyżka / przychody",
-      delta: formatKpiDelta(kpis.savingsRateChange, false),
+      delta: formatKpiDelta(kpis.savingsRateChange, false)?.replace(
+        " vs poprz. okres",
+        ` vs ${compareLabel}`
+      ),
       deltaPositive: (kpis.savingsRateChange ?? 0) >= 0,
       icon: PiggyBank,
       tone: "warning",
@@ -97,7 +129,7 @@ export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGri
   ];
 
   return (
-    <SummaryCardGrid cols={4}>
+    <SummaryCardGrid cols={6}>
       {items.map((item) => (
         <SummaryCard
           key={item.label}
@@ -107,7 +139,7 @@ export function DashboardKpiGrid({ kpis, periodFrom, periodTo }: DashboardKpiGri
           icon={item.icon}
           tone={item.tone}
           href={item.href}
-          delta={item.delta?.replace(" vs poprz. okres", "")}
+          delta={item.delta}
           deltaPositive={item.deltaPositive}
           mutedValue={item.mutedValue}
         />

@@ -35,6 +35,7 @@ export async function DashboardKpiBlock({ searchParams }: DashboardKpiBlockProps
   return (
     <DashboardKpiGrid
       kpis={kpis}
+      period={period}
       periodFrom={period.current.from}
       periodTo={period.current.to}
     />

@@ -89,6 +89,7 @@ export interface DashboardData {
   asOfDate: string;
   kpis: DashboardKpi;
   categoryBreakdown: CategorySlice[];
+  categoryBreakdownFull: CategorySlice[];
   categoryTotal: number;
   accounts: DashboardAccountRow[];
   recentTransactions: RecentTransactionRow[];
@@ -113,9 +114,10 @@ function sumLiquidAssets(balances: { account_type: string; balance_pln: number }
     .reduce((s, b) => s + Number(b.balance_pln), 0);
 }
 
-function buildCategorySlices(
+export function buildCategorySlices(
   current: CategoryBreakdown[],
-  previous: CategoryBreakdown[]
+  previous: CategoryBreakdown[],
+  topLimit = 5
 ): { slices: CategorySlice[]; total: number } {
   const total = current.reduce((sum, r) => sum + Number(r.total_pln), 0);
   if (total === 0) return { slices: [], total: 0 };
@@ -124,8 +126,9 @@ function buildCategorySlices(
     previous.map((r) => [r.category_id ?? "none", Number(r.total_pln)])
   );
 
-  const top = current.slice(0, 5);
-  const rest = current.slice(5);
+  const limit = topLimit <= 0 ? current.length : topLimit;
+  const top = current.slice(0, limit);
+  const rest = topLimit <= 0 ? [] : current.slice(limit);
   const restTotal = rest.reduce((sum, r) => sum + Number(r.total_pln), 0);
 
   const slices: CategorySlice[] = top.map((r, i) => {
@@ -406,6 +409,11 @@ export async function fetchDashboardData(
     categoryCurrent,
     categoryPrevious
   );
+  const { slices: categoryBreakdownFull } = buildCategorySlices(
+    categoryCurrent,
+    categoryPrevious,
+    999
+  );
 
   const accounts: DashboardAccountRow[] = (allAccounts as AccountManageRow[])
     .filter((a) => !isGoldLedgerAccount(a.account_name))
@@ -459,12 +467,56 @@ export async function fetchDashboardData(
     asOfDate,
     kpis,
     categoryBreakdown,
+    categoryBreakdownFull,
     categoryTotal,
     accounts,
     recentTransactions,
     currencyExposure: computeCurrencyExposure(accountBalances),
     investments: buildInvestmentsSection(instruments, accountInvestments),
   };
+}
+
+export async function fetchCashflowMonths(
+  supabase: ServerSupabaseClient,
+  months: number,
+  asOfDate: string,
+  mode: BalanceMode
+): Promise<CashflowMonth[]> {
+  const { rpcCashflowHistory } = await import("@/lib/supabase/rpc");
+  const rows = await rpcCashflowHistory(supabase, months, asOfDate, mode);
+  const monthNames = [
+    "sty",
+    "lut",
+    "mar",
+    "kwi",
+    "maj",
+    "cze",
+    "lip",
+    "sie",
+    "wrz",
+    "paź",
+    "lis",
+    "gru",
+  ];
+  return rows.map((r) => ({
+    label: monthNames[r.month - 1] ?? String(r.month),
+    year: r.year,
+    month: r.month,
+    income: r.income_pln,
+    expenses: r.expense_pln,
+    surplus: r.surplus_pln,
+    hasData: r.has_data,
+  }));
+}
+
+export function formatKpiPercentChange(
+  current: number,
+  previous: number | null,
+  compareLabel: string
+): string | undefined {
+  if (previous == null || previous === 0) return undefined;
+  const pct = ((current - previous) / Math.abs(previous)) * 100;
+  return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% vs ${compareLabel}`;
 }
 
 export function calcTrendPercent(current: number, previous: number): string | undefined {

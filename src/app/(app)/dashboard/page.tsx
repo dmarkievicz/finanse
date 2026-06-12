@@ -1,24 +1,13 @@
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchLookupData } from "@/lib/queries/transaction-detail";
-import { parseDashboardPeriod } from "@/lib/dashboard/period";
+import { parseDashboardPeriod, dashboardSubtitle } from "@/lib/dashboard/period";
+import { fetchDashboardPageData } from "@/lib/queries/fetch-dashboard-page";
 import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/layout";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
-import { DashboardKpiBlock } from "@/components/dashboard/dashboard-kpi-block";
-import { DashboardDetailsBlock } from "@/components/dashboard/dashboard-details-block";
+import { DashboardContent } from "@/components/dashboard/dashboard-content";
 
 export const dynamic = "force-dynamic";
-
-function DashboardSkeleton({ rows = 1 }: { rows?: number }) {
-  return (
-    <div className="animate-pulse space-y-3">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="h-24 rounded-xl bg-slate-200/80" />
-      ))}
-    </div>
-  );
-}
 
 interface DashboardPageProps {
   searchParams: Promise<Record<string, string | undefined>>;
@@ -27,8 +16,15 @@ interface DashboardPageProps {
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const period = parseDashboardPeriod(params);
-  const lookup = await fetchLookupData(supabase);
+  const [lookup, data] = await Promise.all([
+    fetchLookupData(supabase),
+    fetchDashboardPageData(supabase, user?.id, params),
+  ]);
 
   const activeAccounts = lookup.accounts
     .filter((a) => a.lifecycle_status === "active")
@@ -38,7 +34,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     <PageContainer>
       <PageHeader
         title="Pulpit finansowy"
-        description={`${period.label} · PLN`}
+        description={dashboardSubtitle(period)}
         action={
           <DashboardToolbar
             periodLabel={period.label}
@@ -51,13 +47,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         }
       />
 
-      <Suspense fallback={<DashboardSkeleton rows={2} />}>
-        <DashboardKpiBlock searchParams={params} />
-      </Suspense>
-
-      <Suspense fallback={<DashboardSkeleton rows={4} />}>
-        <DashboardDetailsBlock searchParams={params} />
-      </Suspense>
+      <DashboardContent data={data} />
     </PageContainer>
   );
 }

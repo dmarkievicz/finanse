@@ -28,6 +28,26 @@ export function computeGoalMetrics(
     };
   }
 
+  if (current < 0) {
+    const monthsLeft = targetDate
+      ? Math.max(
+          0,
+          (new Date(targetDate + "T00:00:00").getFullYear() - new Date().getFullYear()) * 12 +
+            (new Date(targetDate + "T00:00:00").getMonth() - new Date().getMonth())
+        )
+      : 0;
+    const remaining = target - current;
+    return {
+      pct: 0,
+      remaining,
+      monthsLeft,
+      monthlyRequired: monthsLeft > 0 ? Math.ceil(remaining / monthsLeft) : null,
+      projectedDate: null,
+      status: "behind",
+      statusLabel: "Cel nie został jeszcze rozpoczęty według aktualnego majątku netto",
+    };
+  }
+
   const pct = Math.min(100, Math.round((current / target) * 1000) / 10);
   const remaining = Math.max(0, target - current);
 
