@@ -243,8 +243,11 @@ function validateRow(row) {
 
   if (txType === "income") {
     if (!row.target_account) {
-      warnings.push({ code: "R001", message: "Przychód bez konta docelowego" });
-      needsReview = true;
+      warnings.push({
+        code: "W007",
+        message: "Przychód bez konta docelowego — przypisano do Gotówka PLN",
+      });
+      useCashAccount = true;
     }
     if (!row.category) {
       warnings.push({ code: "W001", message: "Brak kategorii" });
@@ -314,12 +317,11 @@ function buildEntries(row, validation, accountMap) {
       row.amount,
       row.exchange_rate
     );
-    const accountName =
-      validation.txType === "income"
+    const accountName = validation.useCashAccount
+      ? CASH_ACCOUNT
+      : validation.txType === "income"
         ? row.target_account
-        : validation.useCashAccount
-          ? CASH_ACCOUNT
-          : row.source_account;
+        : row.source_account;
     entries.push({
       account_id: accountMap.get(accountName),
       amount: signed.amount,

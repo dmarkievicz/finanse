@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, PieChart } from "lucide-react";
 import { formatPln } from "@/lib/format";
-import { SectionCard, SectionCardHeader } from "@/components/layout";
+import { cn } from "@/lib/utils";
 
 interface AccountsSummaryPanelProps {
   netWorth: number;
@@ -99,25 +99,39 @@ export function AccountsSummaryPanel({
   ].filter((s) => s.value !== 0);
 
   return (
-    <div className="space-y-4">
-      <SectionCard>
-        <SectionCardHeader title="Podsumowanie" />
-        <DonutChart
-          slices={slices}
-          centerLabel="Majątek netto"
-          centerValue={formatPln(netWorth)}
-        />
-        <div className="mt-4 border-t border-border pt-3">
-          <div className="flex items-center justify-between text-sm font-semibold">
-            <span className="text-slate-700">Majątek netto</span>
-            <span className="tabular-nums text-foreground">{formatPln(netWorth)}</span>
+    <div className="space-y-3">
+      <section className="rounded-xl border border-border/80 bg-card shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3.5 sm:px-5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100">
+            <PieChart className="h-4 w-4 text-slate-600" />
+          </div>
+          <h2 className="text-[15px] font-semibold text-foreground">Podsumowanie</h2>
+        </div>
+        <div className="px-4 py-4 sm:px-5">
+          <DonutChart
+            slices={slices}
+            centerLabel="Majątek netto"
+            centerValue={formatPln(netWorth)}
+          />
+          <div className="mt-4 border-t border-border/60 pt-3">
+            <div className="flex items-center justify-between text-sm font-semibold">
+              <span className="text-slate-700">Majątek netto</span>
+              <span
+                className={cn(
+                  "tabular-nums",
+                  netWorth < 0 ? "text-red-600" : "text-foreground"
+                )}
+              >
+                {formatPln(netWorth)}
+              </span>
+            </div>
           </div>
         </div>
-      </SectionCard>
+      </section>
 
-      <SectionCard className="bg-slate-50/50">
-        <div className="flex gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50">
+      <section className="rounded-xl border border-border/80 bg-slate-50/50 shadow-sm">
+        <div className="flex gap-3 px-4 py-4 sm:px-5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50">
             <Lightbulb className="h-4 w-4 text-amber-600" />
           </div>
           <div>
@@ -133,7 +147,7 @@ export function AccountsSummaryPanel({
             </Link>
           </div>
         </div>
-      </SectionCard>
+      </section>
     </div>
   );
 }

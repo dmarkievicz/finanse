@@ -14,6 +14,7 @@
     "import:excel:dry": "node scripts/import-excel.mjs --dry-run",
     "import:excel:backfill": "node scripts/import-excel.mjs --backfill",
     "import:excel:backfill:dry": "node scripts/import-excel.mjs --backfill --dry-run",
+    "fix:empty-income": "node scripts/fix-empty-income-entries.mjs",
     "test": "node --experimental-strip-types --test src/lib/balances/*.test.ts src/lib/import/*.test.ts src/lib/transactions/*.test.ts",
     "verify:balances": "node scripts/verify-balances.mjs",
     "reconcile:balances": "node scripts/reconcile-balances.mjs",

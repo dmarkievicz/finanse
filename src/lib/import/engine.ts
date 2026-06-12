@@ -159,8 +159,11 @@ function validateRow(row: ReturnType<typeof normalizeRow>) {
     useCashAccount = true;
   }
   if (txType === "income" && !row.target_account) {
-    warnings.push({ code: "R001", message: "Brak konta docelowego" });
-    needsReview = true;
+    warnings.push({
+      code: "W007",
+      message: "Przychód bez konta docelowego — przypisano do Gotówka PLN",
+    });
+    useCashAccount = true;
   }
   if (txType === "transfer") {
     if (!row.source_account && !row.target_account) {
@@ -357,12 +360,11 @@ async function processBatch(supabase: SupabaseClient, userId: string, importId: 
           row.amount!,
           row.exchange_rate
         );
-        const accountKey =
-          validation.txType === "income"
+        const accountKey = validation.useCashAccount
+          ? CASH_ACCOUNT
+          : validation.txType === "income"
             ? row.target_account
-            : validation.useCashAccount
-              ? CASH_ACCOUNT
-              : row.source_account;
+            : row.source_account;
         entries.push({
           account_id: accountMap.get(accountKey),
           amount: signed.amount,

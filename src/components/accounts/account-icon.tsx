@@ -1,5 +1,4 @@
 import {
-  Archive,
   Banknote,
   ChartCandlestick,
   Coins,
@@ -48,7 +47,7 @@ const groupConfig: Record<AccountGroupId, { icon: LucideIcon; bg: string; color:
     foreign: { icon: Globe, bg: "bg-violet-50", color: "text-violet-600" },
     cash: { icon: Wallet, bg: "bg-emerald-50", color: "text-emerald-600" },
     investments: { icon: TrendingUp, bg: "bg-indigo-50", color: "text-indigo-700" },
-    other: { icon: Archive, bg: "bg-slate-100", color: "text-slate-500" },
+    other: { icon: Coins, bg: "bg-slate-100", color: "text-slate-600" },
   };
 
 function iconFromName(name: string): { icon: LucideIcon; bg: string; color: string } | null {

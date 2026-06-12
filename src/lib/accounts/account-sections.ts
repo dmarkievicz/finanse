@@ -20,21 +20,26 @@ export interface AccountGroupSection {
 
 const GROUP_ORDER: AccountGroupId[] = [
   "bank",
-  "credit_card",
-  "foreign",
   "cash",
+  "foreign",
+  "credit_card",
   "investments",
   "other",
 ];
 
 const GROUP_TITLES: Record<AccountGroupId, string> = {
   bank: "Konta bankowe",
-  credit_card: "Karty kredytowe",
-  foreign: "Konta walutowe",
   cash: "Gotówka",
+  foreign: "Konta walutowe",
+  credit_card: "Karty kredytowe",
   investments: "Inwestycje",
-  other: "Inne / archiwalne",
+  other: "Inne",
 };
+
+/** Tylko konta bankowe są domyślnie rozwinięte. */
+export function isAccountGroupDefaultOpen(id: AccountGroupId): boolean {
+  return id === "bank";
+}
 
 const INVESTMENT_TYPES = new Set<AccountType>([
   "broker",
@@ -82,7 +87,7 @@ function assignGroup(account: AccountsPageAccount): AccountGroupId {
     return "investments";
   }
   if (account.currency !== "PLN") return "foreign";
-  if (account.account_type === "bank" || account.account_type === "other") return "bank";
+  if (account.account_type === "bank") return "bank";
   return "other";
 }
 
