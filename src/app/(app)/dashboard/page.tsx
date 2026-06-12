@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchLookupData } from "@/lib/queries/transaction-detail";
 import { parseDashboardPeriod } from "@/lib/dashboard/period";
+import { PageHeader } from "@/components/page-header";
+import { PageContainer } from "@/components/layout";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
 import { DashboardKpiBlock } from "@/components/dashboard/dashboard-kpi-block";
 import { DashboardDetailsBlock } from "@/components/dashboard/dashboard-details-block";
@@ -33,17 +35,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .map((a) => ({ id: a.id, name: a.name, default_currency: a.default_currency }));
 
   return (
-    <div className="-m-2 min-h-full bg-[#f6f7f9] p-2 lg:-m-4 lg:p-4">
-      <div className="mx-auto max-w-[1320px] space-y-6">
-        <header className="flex flex-col gap-4 rounded-xl border border-slate-200/90 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-              Pulpit finansowy
-            </h1>
-            <p className="mt-0.5 text-[13px] text-slate-500">
-              {period.label} · PLN
-            </p>
-          </div>
+    <PageContainer>
+      <PageHeader
+        title="Pulpit finansowy"
+        description={`${period.label} · PLN`}
+        action={
           <DashboardToolbar
             periodLabel={period.label}
             periodPreset={period.preset}
@@ -52,16 +48,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             accounts={activeAccounts}
             categories={lookup.categories}
           />
-        </header>
+        }
+      />
 
-        <Suspense fallback={<DashboardSkeleton rows={2} />}>
-          <DashboardKpiBlock searchParams={params} />
-        </Suspense>
+      <Suspense fallback={<DashboardSkeleton rows={2} />}>
+        <DashboardKpiBlock searchParams={params} />
+      </Suspense>
 
-        <Suspense fallback={<DashboardSkeleton rows={4} />}>
-          <DashboardDetailsBlock searchParams={params} />
-        </Suspense>
-      </div>
-    </div>
+      <Suspense fallback={<DashboardSkeleton rows={4} />}>
+        <DashboardDetailsBlock searchParams={params} />
+      </Suspense>
+    </PageContainer>
   );
 }

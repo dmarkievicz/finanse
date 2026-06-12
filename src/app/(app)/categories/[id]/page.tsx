@@ -10,6 +10,7 @@ import { CategorySparkline } from "@/components/categories/category-sparkline";
 import { buildCategoryTransactionsUrl } from "@/lib/categories/transactions-link";
 import { trendClass, trendLabel } from "@/lib/categories/labels";
 import { formatDate, formatPln } from "@/lib/format";
+import { PageContainer } from "@/components/layout";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export default async function CategoryDetailPage({ params, searchParams }: Props
   const maxTrend = Math.max(...sparkValues, 1);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+    <PageContainer>
       <Link
         href="/categories"
         className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-primary hover:underline"
@@ -178,6 +179,6 @@ export default async function CategoryDetailPage({ params, searchParams }: Props
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

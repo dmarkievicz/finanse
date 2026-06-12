@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout";
 import { PageHeader } from "@/components/page-header";
 import { ImportStats } from "@/components/imports/import-stats";
 import { ImportUpload } from "@/components/imports/import-upload";
@@ -14,7 +15,7 @@ export default async function ImportsPage() {
   const data = await fetchImportsPage(supabase);
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <PageHeader
         title="Import"
         description="Wyczyść dane, zaimportuj ponownie z Excela, przeglądaj historię"
@@ -37,6 +38,6 @@ export default async function ImportsPage() {
         <ClearDataPanel />
       </div>
       <ImportHistory imports={data.imports} />
-    </div>
+    </PageContainer>
   );
 }

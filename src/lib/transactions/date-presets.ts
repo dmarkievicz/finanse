@@ -15,8 +15,12 @@ export interface DateRange {
   to: string;
 }
 
-function toIso(d: Date): string {
-  return d.toISOString().slice(0, 10);
+/** ISO date (YYYY-MM-DD) w lokalnej strefie użytkownika — bez przesunięć UTC. */
+function toLocalIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function startOfWeek(d: Date): Date {
@@ -33,25 +37,25 @@ export function resolvePeriodPreset(preset: PeriodPreset, ref = new Date()): Dat
 
   switch (preset) {
     case "today":
-      return { from: toIso(ref), to: toIso(ref) };
+      return { from: toLocalIso(ref), to: toLocalIso(ref) };
     case "yesterday": {
       const d = new Date(ref);
       d.setDate(d.getDate() - 1);
-      return { from: toIso(d), to: toIso(d) };
+      return { from: toLocalIso(d), to: toLocalIso(d) };
     }
     case "this_week": {
       const start = startOfWeek(ref);
-      return { from: toIso(start), to: toIso(ref) };
+      return { from: toLocalIso(start), to: toLocalIso(ref) };
     }
     case "this_month":
       return {
         from: `${y}-${String(m + 1).padStart(2, "0")}-01`,
-        to: toIso(new Date(y, m + 1, 0)),
+        to: toLocalIso(new Date(y, m + 1, 0)),
       };
     case "prev_month":
       return {
         from: `${y}-${String(m).padStart(2, "0")}-01`,
-        to: toIso(new Date(y, m, 0)),
+        to: toLocalIso(new Date(y, m, 0)),
       };
     case "this_year":
       return { from: `${y}-01-01`, to: `${y}-12-31` };
@@ -62,16 +66,38 @@ export function resolvePeriodPreset(preset: PeriodPreset, ref = new Date()): Dat
   }
 }
 
-export const PERIOD_PRESETS: { value: PeriodPreset; label: string }[] = [
+export const PRIMARY_PERIOD_PRESETS: { value: PeriodPreset; label: string }[] = [
   { value: "today", label: "Dzisiaj" },
-  { value: "yesterday", label: "Wczoraj" },
-  { value: "this_week", label: "Ten tydzień" },
   { value: "this_month", label: "Ten miesiąc" },
   { value: "prev_month", label: "Poprzedni miesiąc" },
   { value: "this_year", label: "Ten rok" },
-  { value: "prev_year", label: "Poprzedni rok" },
   { value: "custom", label: "Zakres własny" },
 ];
+
+export const MORE_PERIOD_PRESETS: { value: PeriodPreset; label: string }[] = [
+  { value: "yesterday", label: "Wczoraj" },
+  { value: "this_week", label: "Ten tydzień" },
+  { value: "prev_year", label: "Poprzedni rok" },
+];
+
+/** Wszystkie presety — kompatybilność wsteczna. */
+export const PERIOD_PRESETS: { value: PeriodPreset; label: string }[] = [
+  ...PRIMARY_PERIOD_PRESETS.slice(0, -1),
+  ...MORE_PERIOD_PRESETS,
+  { value: "custom", label: "Zakres własny" },
+];
+
+const MORE_PRESET_VALUES = new Set(MORE_PERIOD_PRESETS.map((p) => p.value));
+
+export function isMorePeriodPreset(preset: PeriodPreset): boolean {
+  return MORE_PRESET_VALUES.has(preset);
+}
+
+export function validateCustomDateRange(from: string, to: string): string | null {
+  if (!from || !to) return "Wybierz obie daty zakresu.";
+  if (from > to) return "Data „od” nie może być późniejsza niż data „do”.";
+  return null;
+}
 
 export function formatDateRangeLabel(from?: string, to?: string, preset?: PeriodPreset): string {
   if (preset && preset !== "custom") {

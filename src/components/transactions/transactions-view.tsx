@@ -11,6 +11,7 @@ import {
   activeFilterCount,
   type TransactionFilterState,
 } from "@/lib/transactions/filter-state";
+import { PageContainer } from "@/components/layout";
 import { TransactionsToolbar } from "@/components/transactions/transactions-toolbar";
 import { TransactionsAdvancedFilters } from "@/components/transactions/transactions-advanced-filters";
 import { TransactionsSummaryCards } from "@/components/transactions/transactions-summary-cards";
@@ -51,7 +52,7 @@ export function TransactionsView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   return (
-    <div>
+    <PageContainer>
       <TransactionsToolbar
         filterState={filterState}
         total={summary.txCount || total}
@@ -88,6 +89,6 @@ export function TransactionsView({
         transactionId={selectedId}
         onClose={() => setSelectedId(null)}
       />
-    </div>
+    </PageContainer>
   );
 }

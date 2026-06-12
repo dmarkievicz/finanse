@@ -1,0 +1,12 @@
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+
+interface PageContainerProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/** Pełna szerokość robocza — ten sam wrapper na wszystkich głównych widokach. */
+export function PageContainer({ children, className }: PageContainerProps) {
+  return <div className={cn("w-full space-y-6", className)}>{children}</div>;
+}

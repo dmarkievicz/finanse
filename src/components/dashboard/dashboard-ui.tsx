@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { SectionCard, SectionCardHeader } from "@/components/layout";
 
-/** Wspólny kontener sekcji dashboardu — jasne tło, delikatna obwódka. */
+/** @deprecated Użyj SectionCard z @/components/layout */
 export function DashboardPanel({
   children,
   className,
@@ -12,20 +12,13 @@ export function DashboardPanel({
   padding?: "default" | "compact" | "none";
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-slate-200/90 bg-white",
-        padding === "default" && "p-5",
-        padding === "compact" && "p-4",
-        padding === "none" && "p-0",
-        className
-      )}
-    >
+    <SectionCard className={className} padding={padding}>
       {children}
-    </div>
+    </SectionCard>
   );
 }
 
+/** @deprecated Użyj SectionCardHeader z @/components/layout */
 export function DashboardPanelHeader({
   title,
   subtitle,
@@ -35,15 +28,7 @@ export function DashboardPanelHeader({
   subtitle?: string;
   action?: ReactNode;
 }) {
-  return (
-    <div className="mb-4 flex items-start justify-between gap-3">
-      <div>
-        <h3 className="text-[15px] font-semibold tracking-tight text-slate-800">{title}</h3>
-        {subtitle && <p className="mt-0.5 text-[13px] text-slate-500">{subtitle}</p>}
-      </div>
-      {action}
-    </div>
-  );
+  return <SectionCardHeader title={title} subtitle={subtitle} action={action} />;
 }
 
 export function DashboardSection({
@@ -54,9 +39,9 @@ export function DashboardSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       {title && (
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">{title}</h2>
       )}
       {children}
     </section>
@@ -65,11 +50,11 @@ export function DashboardSection({
 
 export function DashboardEmpty({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-[120px] items-center justify-center rounded-lg bg-slate-50/80 text-[13px] text-slate-500">
+    <div className="flex min-h-[7.5rem] items-center justify-center rounded-lg bg-slate-50/80 text-sm text-muted">
       {children}
     </div>
   );
 }
 
 export const dashboardLink =
-  "text-[13px] font-medium text-slate-600 hover:text-slate-900 transition-colors";
+  "text-sm font-medium text-muted hover:text-foreground transition-colors";

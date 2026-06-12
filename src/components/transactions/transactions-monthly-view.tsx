@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { DailyBreakdownRow } from "@/lib/queries/transaction-summary";
+import { TransactionsEmptyState } from "@/components/transactions/transactions-empty-state";
 import { formatDate, formatPln } from "@/lib/format";
 import {
   buildTransactionsUrl,
@@ -17,9 +18,9 @@ export function TransactionsMonthlyView({
 }: TransactionsMonthlyViewProps) {
   if (!days.length) {
     return (
-      <p className="rounded-xl border border-border bg-card p-12 text-center text-sm text-muted">
-        Brak danych dla wybranego okresu
-      </p>
+      <div className="rounded-xl border border-border bg-card shadow-sm">
+        <TransactionsEmptyState filterState={filterState} />
+      </div>
     );
   }
 

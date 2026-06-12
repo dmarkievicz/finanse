@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { validateCustomDateRange } from "@/lib/transactions/date-presets";
 import { useRouter } from "next/navigation";
 import { Loader2, X } from "lucide-react";
 import { ACCOUNT_CURRENCIES } from "@/lib/accounts/patch-fields";
@@ -53,13 +54,40 @@ export function TransactionsAdvancedFilters({
     ? lookup.subcategories.filter((s) => s.category_id === form.categoryId)
     : lookup.subcategories;
 
+  useEffect(() => {
+    setForm({
+      dateFrom: filterState.dateFrom ?? "",
+      dateTo: filterState.dateTo ?? "",
+      day: filterState.day ?? "",
+      accountId: filterState.accountId ?? "",
+      sourceAccountId: filterState.sourceAccountId ?? "",
+      targetAccountId: filterState.targetAccountId ?? "",
+      categoryId: filterState.categoryId ?? "",
+      subcategoryId: filterState.subcategoryId ?? "",
+      currency: filterState.currency ?? "",
+      amountMin: filterState.amountMin?.toString() ?? "",
+      amountMax: filterState.amountMax?.toString() ?? "",
+      search: filterState.search ?? "",
+      importOnly: filterState.importOnly ?? false,
+      manualOnly: filterState.manualOnly ?? false,
+      includeReconciled: filterState.includeReconciled ?? false,
+    });
+  }, [filterState]);
+
   function apply() {
+    if (!form.day && (form.dateFrom || form.dateTo)) {
+      const err = validateCustomDateRange(form.dateFrom, form.dateTo);
+      if (err) {
+        window.alert(err);
+        return;
+      }
+    }
     setLoading(true);
     const params: Partial<TransactionFilterState> = {
-      period: form.day || form.dateFrom || form.dateTo ? "custom" : filterState.period,
+      period: form.day || (form.dateFrom && form.dateTo) ? "custom" : filterState.period,
       day: form.day || undefined,
-      dateFrom: form.dateFrom || undefined,
-      dateTo: form.dateTo || undefined,
+      dateFrom: form.dateFrom && form.dateTo ? form.dateFrom : undefined,
+      dateTo: form.dateFrom && form.dateTo ? form.dateTo : undefined,
       accountId: form.accountId || undefined,
       sourceAccountId: form.sourceAccountId || undefined,
       targetAccountId: form.targetAccountId || undefined,

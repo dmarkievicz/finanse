@@ -16,7 +16,7 @@ export function CategoriesWorkspace({
   baseParams,
 }: CategoriesWorkspaceProps) {
   return (
-    <div className="space-y-6">
+    <>
       <CategoriesToolbar
         periodLabel={data.period.label}
         periodPreset={data.period.preset}
@@ -41,6 +41,6 @@ export function CategoriesWorkspace({
           baseParams={baseParams}
         />
       )}
-    </div>
+    </>
   );
 }

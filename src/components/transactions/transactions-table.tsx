@@ -15,6 +15,7 @@ import {
 } from "@/lib/transactions/filter-state";
 import { formatDate, formatPln, formatPlnSigned } from "@/lib/format";
 import { accumulateFlows } from "@/lib/transactions/cashflow-amounts";
+import { TransactionsEmptyState } from "@/components/transactions/transactions-empty-state";
 import { cn } from "@/lib/utils";
 
 interface TransactionsTableProps {
@@ -256,8 +257,8 @@ export function TransactionsTable({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-16 text-center text-muted">
-                  Brak transakcji dla wybranych filtrów
+                <td colSpan={11}>
+                  <TransactionsEmptyState filterState={filterState} />
                 </td>
               </tr>
             ) : grouped && groups ? (
@@ -305,7 +306,7 @@ export function TransactionsTable({
 
       <div className="space-y-3 p-3 md:hidden">
         {items.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted">Brak transakcji</p>
+          <TransactionsEmptyState filterState={filterState} compact />
         ) : (
           items.map((t) => <MobileCard key={t.id} t={t} onSelect={onSelect} />)
         )}

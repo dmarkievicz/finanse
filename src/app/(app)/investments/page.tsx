@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { ButtonLink, PageContainer, PageToolbar } from "@/components/layout";
 import { PageHeader } from "@/components/page-header";
 import { InvestmentsSummary } from "@/components/investments/investments-summary";
 import { InvestmentsAllocation } from "@/components/investments/investments-allocation";
@@ -51,32 +52,24 @@ export default async function InvestmentsPage() {
       : accountData.allocation;
 
   return (
-    <div className="space-y-8">
+    <PageContainer>
       <PageHeader
         title="Inwestycje"
         description="Portfel — ETF, obligacje, złoto (instrument GOLD) i inne pozycje. Złoto nie jest kontem operacyjnym."
         action={
-          <div className="flex flex-wrap gap-2">
+          <PageToolbar>
             <Link
               href="/investments/bullion"
               className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-700 to-amber-600 px-3 py-2 text-sm font-medium text-white shadow-md hover:from-amber-600 hover:to-amber-500"
             >
               Bulion Vault
             </Link>
-            <Link
-              href="/investments/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-            >
+            <ButtonLink href="/investments/new" variant="primary">
               <Plus className="h-4 w-4" />
               Nowy instrument
-            </Link>
-            <Link
-              href="/accounts/new"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              Nowe konto
-            </Link>
-          </div>
+            </ButtonLink>
+            <ButtonLink href="/accounts/new">Nowe konto</ButtonLink>
+          </PageToolbar>
         }
       />
 
@@ -93,6 +86,6 @@ export default async function InvestmentsPage() {
       {allocation.length > 0 && (
         <InvestmentsAllocation allocation={allocation} totalPln={combinedTotal} />
       )}
-    </div>
+    </PageContainer>
   );
 }

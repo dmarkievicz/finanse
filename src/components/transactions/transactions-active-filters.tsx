@@ -22,13 +22,9 @@ export function TransactionsActiveFilters({ state }: { state: TransactionFilterS
 
   if (state.day) {
     badges.push({
-      label: `Dzień: ${state.day}`,
-      clearHref: buildTransactionsUrl(state, { day: undefined, page: 1 }),
-    });
-  } else if (state.period !== "this_month" || state.dateFrom || state.dateTo) {
-    badges.push({
-      label: `Okres: ${periodLabel(state)}`,
+      label: `Dzień: ${periodLabel(state)}`,
       clearHref: buildTransactionsUrl(state, {
+        day: undefined,
         period: "this_month",
         dateFrom: undefined,
         dateTo: undefined,

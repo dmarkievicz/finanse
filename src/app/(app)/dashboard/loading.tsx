@@ -1,24 +1,24 @@
+import { PageContainer } from "@/components/layout";
+
 function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded-lg bg-slate-200/60 ${className ?? ""}`} />;
+  return <div className={`animate-pulse rounded-xl bg-slate-200/60 ${className ?? ""}`} />;
 }
 
 export default function DashboardLoading() {
   return (
-    <div className="-m-2 bg-[#f6f7f9] p-2 lg:-m-4 lg:p-4">
-      <div className="mx-auto max-w-[1320px] space-y-6">
-        <Skeleton className="h-16 rounded-xl" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-56 rounded-xl" />
-        <div className="grid gap-3 lg:grid-cols-12">
-          <Skeleton className="h-64 rounded-xl lg:col-span-4" />
-          <Skeleton className="h-64 rounded-xl lg:col-span-5" />
-          <Skeleton className="h-64 rounded-xl lg:col-span-3" />
-        </div>
+    <PageContainer>
+      <Skeleton className="h-16" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-[7.5rem]" />
+        ))}
       </div>
-    </div>
+      <Skeleton className="h-56" />
+      <div className="grid gap-4 lg:grid-cols-12">
+        <Skeleton className="h-64 lg:col-span-4" />
+        <Skeleton className="h-64 lg:col-span-5" />
+        <Skeleton className="h-64 lg:col-span-3" />
+      </div>
+    </PageContainer>
   );
 }

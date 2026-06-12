@@ -20,6 +20,7 @@ import { trendClass, trendLabel } from "@/lib/categories/labels";
 import { buildCategoriesUrl } from "@/lib/categories/period";
 import { CategoryFormDialog } from "@/components/categories/category-form-dialog";
 import { CategoryMergeDialog } from "@/components/categories/category-merge-dialog";
+import { EmptyState, SectionCard } from "@/components/layout";
 import { cn } from "@/lib/utils";
 
 interface CategoriesAnalyticsTableProps {
@@ -68,18 +69,19 @@ export function CategoriesAnalyticsTable({
 
   if (!data.rows.length) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-12 text-center">
-        <p className="text-sm font-medium text-slate-700">Brak transakcji w wybranym okresie</p>
-        <p className="mt-1 text-sm text-slate-500">
-          Zmień zakres dat albo włącz „Pokaż kategorie bez transakcji”.
-        </p>
-        <Link
-          href={buildCategoriesUrl({ showEmpty: true }, baseParams)}
-          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
-        >
-          Pokaż wszystkie kategorie
-        </Link>
-      </div>
+      <SectionCard padding="none">
+        <EmptyState
+          title="Brak kategorii dla wybranych filtrów"
+          description="Zmień zakres dat albo włącz „Pokaż kategorie bez transakcji”."
+          actions={[
+            {
+              label: "Pokaż wszystkie kategorie",
+              href: buildCategoriesUrl({ showEmpty: true }, baseParams),
+              variant: "primary",
+            },
+          ]}
+        />
+      </SectionCard>
     );
   }
 

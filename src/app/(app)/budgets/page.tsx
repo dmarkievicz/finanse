@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout";
 import { PageHeader } from "@/components/page-header";
 import { BudgetsPanel } from "@/components/budgets/budgets-panel";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +27,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
   const monthLabel = formatMonthLabel(`${year}-${String(month).padStart(2, "0")}`);
 
   return (
-    <div>
+    <PageContainer>
       <PageHeader
         title="Budżety"
         description={`Limity miesięczne · ${monthLabel}`}
@@ -37,6 +38,6 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
         year={year}
         month={month}
       />
-    </div>
+    </PageContainer>
   );
 }

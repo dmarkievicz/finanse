@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { parseCategoriesPeriod } from "@/lib/categories/period";
 import { fetchCategoriesAnalytics } from "@/lib/queries/category-analytics";
+import { PageContainer } from "@/components/layout";
 import { CategoriesWorkspace } from "@/components/categories/categories-workspace";
 
 export const dynamic = "force-dynamic";
@@ -24,12 +25,12 @@ export default async function CategoriesPage({ searchParams }: Props) {
   const allCategories = (catsRes.data ?? []) as { id: string; name: string }[];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <PageContainer>
       <CategoriesWorkspace
         data={data}
         allCategories={allCategories}
         baseParams={params}
       />
-    </div>
+    </PageContainer>
   );
 }

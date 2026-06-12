@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageContainer, ButtonLink, PageToolbar } from "@/components/layout";
 import { PageHeader } from "@/components/page-header";
 import { AccountsSummary } from "@/components/accounts/accounts-summary";
 import { AccountsCurrencyBoard } from "@/components/accounts/accounts-currency-board";
@@ -17,23 +18,17 @@ export default async function AccountsPage() {
   ]);
 
   return (
-    <div>
+    <PageContainer>
       <PageHeader
         title="Konta"
         description={`${data.accounts.length} aktywnych kont · bankowe, walutowe, gotówka, inwestycje`}
         action={
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/accounts/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-            >
+          <PageToolbar>
+            <ButtonLink href="/accounts/new" variant="primary">
               <Plus className="h-4 w-4" />
               Nowe konto
-            </Link>
-            <Link
-              href="/accounts/manage"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-slate-50"
-            >
+            </ButtonLink>
+            <ButtonLink href="/accounts/manage">
               <Settings2 className="h-4 w-4" />
               Zarządzaj
               {manage.needsReviewCount > 0 && (
@@ -41,14 +36,9 @@ export default async function AccountsPage() {
                   {manage.needsReviewCount}
                 </span>
               )}
-            </Link>
-            <Link
-              href="/accounts/opening"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              Salda początkowe
-            </Link>
-          </div>
+            </ButtonLink>
+            <ButtonLink href="/accounts/opening">Salda początkowe</ButtonLink>
+          </PageToolbar>
         }
       />
 
@@ -67,6 +57,6 @@ export default async function AccountsPage() {
         asOfDate={data.asOfDate}
       />
       <AccountsCurrencyBoard sections={buildAccountSections(data.accounts)} />
-    </div>
+    </PageContainer>
   );
 }

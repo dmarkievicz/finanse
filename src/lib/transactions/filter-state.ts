@@ -1,6 +1,7 @@
 import type { TransactionType } from "@/types/database";
 import {
   formatDateRangeLabel,
+  isMorePeriodPreset,
   resolvePeriodPreset,
   type DateRange,
   type PeriodPreset,
@@ -41,17 +42,35 @@ export interface TransactionFilterState {
 
 export const DEFAULT_PAGE_SIZE = 50;
 
-export function resolveDateRange(state: TransactionFilterState): DateRange | null {
+export function resolveDateRange(state: TransactionFilterState): DateRange {
   if (state.day) {
     return { from: state.day, to: state.day };
   }
   if (state.period === "custom" && state.dateFrom && state.dateTo) {
     return { from: state.dateFrom, to: state.dateTo };
   }
-  if (state.period !== "custom") {
-    return resolvePeriodPreset(state.period);
+  if (state.period === "custom") {
+    return resolvePeriodPreset("this_month");
   }
-  return null;
+  return resolvePeriodPreset(state.period);
+}
+
+/** Czy dany preset okresu jest aktywny w stanie filtrów (toolbar). */
+export function isPeriodPresetActive(
+  state: TransactionFilterState,
+  preset: PeriodPreset
+): boolean {
+  if (state.day) return false;
+  if (preset === "custom") {
+    return state.period === "custom" && !!state.dateFrom && !!state.dateTo;
+  }
+  return state.period === preset && !state.dateFrom && !state.dateTo;
+}
+
+export function isTodayPeriod(state: TransactionFilterState): boolean {
+  if (state.period === "today" && !state.day && !state.dateFrom) return true;
+  const today = resolvePeriodPreset("today");
+  return state.day === today.from;
 }
 
 export function parseTransactionFilters(
@@ -95,6 +114,29 @@ export function parseTransactionFilters(
   };
 }
 
+export function buildPeriodUrl(
+  state: TransactionFilterState,
+  period: PeriodPreset,
+  custom?: { from: string; to: string }
+): string {
+  if (period === "custom" && custom) {
+    return buildTransactionsUrl(state, {
+      period: "custom",
+      dateFrom: custom.from,
+      dateTo: custom.to,
+      day: undefined,
+      page: 1,
+    });
+  }
+  return buildTransactionsUrl(state, {
+    period,
+    dateFrom: undefined,
+    dateTo: undefined,
+    day: undefined,
+    page: 1,
+  });
+}
+
 export function buildTransactionsUrl(
   state: TransactionFilterState,
   overrides: Partial<TransactionFilterState> = {}
@@ -106,8 +148,10 @@ export function buildTransactionsUrl(
   if (merged.type !== "all") params.set("type", merged.type);
   if (merged.period && merged.period !== "this_month") params.set("period", merged.period);
   if (merged.day) params.set("day", merged.day);
-  if (merged.dateFrom) params.set("from", merged.dateFrom);
-  if (merged.dateTo) params.set("to", merged.dateTo);
+  if (merged.period === "custom") {
+    if (merged.dateFrom) params.set("from", merged.dateFrom);
+    if (merged.dateTo) params.set("to", merged.dateTo);
+  }
   if (merged.accountId) params.set("account", merged.accountId);
   if (merged.sourceAccountId) params.set("source", merged.sourceAccountId);
   if (merged.targetAccountId) params.set("target", merged.targetAccountId);
@@ -163,7 +207,12 @@ export function clearAllFilters(state: TransactionFilterState): string {
 
 export function periodLabel(state: TransactionFilterState): string {
   const range = resolveDateRange(state);
-  if (!range) return "Wszystkie daty";
+  if (state.period === "custom" && state.dateFrom && state.dateTo) {
+    return formatDateRangeLabel(range.from, range.to, "custom");
+  }
+  if (state.day) {
+    return formatDateRangeLabel(range.from, range.to);
+  }
   return formatDateRangeLabel(range.from, range.to, state.period);
 }
 
@@ -180,8 +229,12 @@ export function activeFilterCount(state: TransactionFilterState): number {
   if (state.importOnly) n++;
   if (state.manualOnly) n++;
   if (state.includeReconciled) n++;
-  if (state.period === "custom" && (state.dateFrom || state.dateTo || state.day)) n++;
+  if (state.day) n++;
   return n;
+}
+
+export function isMoreMenuActive(state: TransactionFilterState): boolean {
+  return isMorePeriodPreset(state.period) && !state.day && !state.dateFrom;
 }
 
 /** Zapisane widoki — struktura pod przyszłe rozszerzenie. */
