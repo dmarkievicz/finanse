@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { filterChipBase, filterChipActive, filterChipIdle } from "@/components/layout/filter-chips";
 import { cn } from "@/lib/utils";
 
 export interface FilterTabItem {
@@ -10,35 +11,31 @@ export interface FilterTabItem {
 interface FilterTabsProps {
   items: FilterTabItem[];
   active: string;
+  label?: string;
   className?: string;
 }
 
-/** Spójne zakładki / filtry typu (Wszystkie, Wydatki, …). */
-export function FilterTabs({ items, active, className }: FilterTabsProps) {
+/** Zakładki filtrów — ten sam układ co chipy okresu/typu w Transakcjach. */
+export function FilterTabs({ items, active, label, className }: FilterTabsProps) {
   return (
-    <div
-      className={cn(
-        "flex gap-1 overflow-x-auto rounded-xl border border-border bg-slate-50/80 p-1",
-        className
-      )}
-      role="tablist"
-    >
-      {items.map((item) => (
-        <Link
-          key={item.value}
-          href={item.href}
-          role="tab"
-          aria-selected={active === item.value}
-          className={cn(
-            "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition",
-            active === item.value
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted hover:text-foreground"
-          )}
-        >
-          {item.label}
-        </Link>
-      ))}
+    <div className={className}>
+      {label && <p className="mb-2 text-xs font-medium text-muted">{label}</p>}
+      <div className="-mx-1 flex flex-wrap gap-1.5 overflow-x-auto px-1 pb-0.5" role="tablist">
+        {items.map((item) => (
+          <Link
+            key={item.value}
+            href={item.href}
+            role="tab"
+            aria-selected={active === item.value}
+            className={cn(
+              filterChipBase,
+              active === item.value ? filterChipActive : filterChipIdle
+            )}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

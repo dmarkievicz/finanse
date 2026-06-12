@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Calendar,
   ChevronDown,
@@ -16,11 +16,7 @@ import {
 } from "@/lib/categories/period";
 import type { CategoriesTab } from "@/lib/queries/category-analytics";
 import { PageHeader } from "@/components/page-header";
-import {
-  FilterTabs,
-  IconButton,
-  PageToolbar,
-} from "@/components/layout";
+import { FilterTabs, PageToolbar } from "@/components/layout";
 import { validateCustomDateRange } from "@/lib/transactions/date-presets";
 import { cn } from "@/lib/utils";
 import { CategoryFormDialog } from "@/components/categories/category-form-dialog";
@@ -41,6 +37,9 @@ const TABS: { value: CategoriesTab; label: string }[] = [
   { value: "no_budget", label: "Bez budżetu" },
   { value: "tidy", label: "Do uporządkowania" },
 ];
+
+const btnAction =
+  "inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium transition hover:bg-slate-50";
 
 interface CategoriesToolbarProps {
   periodLabel: string;
@@ -72,6 +71,7 @@ export function CategoriesToolbar({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [q, setQ] = useState(search);
   const [addOpen, setAddOpen] = useState(false);
+  const periodRef = useRef<HTMLDivElement>(null);
 
   function navigate(url: string) {
     startTransition(() => router.push(url));
@@ -93,6 +93,17 @@ export function CategoriesToolbar({
     navigate(buildCategoriesUrl({ period: "custom", from, to }, baseParams));
   }
 
+  useEffect(() => {
+    if (!periodOpen) return;
+    function onPointerDown(e: MouseEvent) {
+      if (periodRef.current && !periodRef.current.contains(e.target as Node)) {
+        setPeriodOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [periodOpen]);
+
   const tabItems = TABS.map((t) => ({
     value: t.value,
     label: t.label,
@@ -101,21 +112,23 @@ export function CategoriesToolbar({
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <PageHeader
           title="Kategorie"
           description={`Analiza wydatków i przychodów · ${periodLabel}`}
           action={
             <PageToolbar>
-              <div className="relative">
-                <IconButton
+              <div className="relative" ref={periodRef}>
+                <button
+                  type="button"
                   onClick={() => setPeriodOpen(!periodOpen)}
                   disabled={pending}
+                  className={cn(btnAction, "text-foreground")}
                 >
-                  <Calendar className="h-4 w-4 text-muted" />
+                  <Calendar className="h-4 w-4" />
                   {periodLabel}
-                  <ChevronDown className="h-3.5 w-3.5 text-muted" />
-                </IconButton>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                </button>
                 {periodOpen && (
                   <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-border bg-card p-1 shadow-lg">
                     {PERIOD_OPTIONS.map((opt) => (
@@ -137,7 +150,7 @@ export function CategoriesToolbar({
                         }}
                         className={cn(
                           "block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50",
-                          periodPreset === opt.value && "bg-slate-50 font-semibold"
+                          periodPreset === opt.value && "bg-slate-50 font-semibold text-foreground"
                         )}
                       >
                         {opt.label}
@@ -146,25 +159,35 @@ export function CategoriesToolbar({
                   </div>
                 )}
               </div>
-              <IconButton onClick={() => setAddOpen(true)}>
+              <button
+                type="button"
+                onClick={() => setAddOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
                 <Plus className="h-4 w-4" />
                 Dodaj kategorię
-              </IconButton>
-              <IconButton
+              </button>
+              <button
+                type="button"
                 onClick={() => navigate(buildCategoriesUrl({ tab: "tidy" }, baseParams))}
+                className={cn(btnAction, "text-muted hover:text-foreground")}
               >
                 <FolderTree className="h-4 w-4" />
                 Porządkuj
-              </IconButton>
-              <IconButton onClick={exportCsv}>
+              </button>
+              <button
+                type="button"
+                onClick={exportCsv}
+                className={cn(btnAction, "text-foreground")}
+              >
                 <Download className="h-4 w-4" />
                 Eksport
-              </IconButton>
+              </button>
             </PageToolbar>
           }
         />
 
-        <FilterTabs items={tabItems} active={tab} />
+        <FilterTabs items={tabItems} active={tab} label="Typ:" />
 
         {tab !== "tidy" && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ChevronDown, Download, Filter, Plus, Trash2 } from "lucide-react";
+import {
+  filterChipActive,
+  filterChipBase,
+  filterChipIdle,
+} from "@/components/layout/filter-chips";
 import { cn } from "@/lib/utils";
 import {
   buildPeriodUrl,
@@ -35,12 +40,6 @@ const VIEW_MODES = [
   { value: "list", label: "Lista" },
   { value: "monthly", label: "Miesiąc" },
 ] as const;
-
-const chipBase =
-  "shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition sm:text-sm";
-const chipActive = "bg-slate-800 text-white";
-const chipIdle =
-  "border border-border bg-card text-muted hover:border-slate-300 hover:text-foreground";
 
 interface TransactionsToolbarProps {
   filterState: TransactionFilterState;
@@ -129,7 +128,7 @@ export function TransactionsToolbar({
           type="button"
           disabled={pending}
           onClick={() => applyPreset("custom")}
-          className={cn(chipBase, active ? chipActive : chipIdle)}
+          className={cn(filterChipBase, active ? filterChipActive : filterChipIdle)}
         >
           {text}
         </button>
@@ -141,7 +140,7 @@ export function TransactionsToolbar({
         type="button"
         disabled={pending}
         onClick={() => applyPreset(preset)}
-        className={cn(chipBase, active ? chipActive : chipIdle)}
+        className={cn(filterChipBase, active ? filterChipActive : filterChipIdle)}
       >
         {text}
       </button>
@@ -268,9 +267,9 @@ export function TransactionsToolbar({
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 className={cn(
-                  chipBase,
+                  filterChipBase,
                   "inline-flex items-center gap-1",
-                  moreActive ? chipActive : chipIdle
+                  moreActive ? filterChipActive : filterChipIdle
                 )}
               >
                 {moreActive
@@ -317,10 +316,9 @@ export function TransactionsToolbar({
                   key={t.value}
                   href={buildTransactionsUrl(filterState, { type: t.value, page: 1 })}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-sm font-medium transition",
-                    filterState.type === t.value
-                      ? "bg-primary text-white"
-                      : "border border-border bg-card text-muted hover:text-foreground"
+                    filterChipBase,
+                    "text-sm",
+                    filterState.type === t.value ? filterChipActive : filterChipIdle
                   )}
                 >
                   {t.label}
