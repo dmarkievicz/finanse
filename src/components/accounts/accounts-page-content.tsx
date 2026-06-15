@@ -10,6 +10,7 @@ import {
   isAccountGroupDefaultOpen,
   type AccountsTabId,
 } from "@/lib/accounts/account-sections";
+import { resolveAccountType } from "@/lib/accounts/classification";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
 import type { AccountType } from "@/types/database";
 import { AccountsKpiCards } from "@/components/accounts/accounts-kpi-cards";
@@ -46,7 +47,9 @@ export function AccountsPageContent({ data }: AccountsPageContentProps) {
     let rows = filterAccountsByTab(data.accounts, tab);
 
     if (typeFilter !== "all") {
-      rows = rows.filter((a) => a.account_type === typeFilter);
+      rows = rows.filter(
+        (a) => resolveAccountType(a.account_type, a.account_name) === typeFilter
+      );
     }
     if (currencyFilter !== "all") {
       rows = rows.filter((a) => a.currency === currencyFilter);

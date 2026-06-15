@@ -1,13 +1,17 @@
 import type { AccountsPageAccount } from "@/lib/queries/fetch-accounts-page";
 import type { AccountType } from "@/types/database";
 import { sortByNamePl } from "@/lib/locale-sort";
-import { isAssetLedgerAccount } from "@/lib/accounts/classification";
+import {
+  isAssetLedgerAccount,
+  resolveAccountType,
+} from "@/lib/accounts/classification";
 
 export type AccountGroupId =
   | "bank"
   | "credit_card"
   | "foreign"
   | "cash"
+  | "loan"
   | "investments"
   | "other";
 
@@ -23,6 +27,7 @@ const GROUP_ORDER: AccountGroupId[] = [
   "cash",
   "foreign",
   "credit_card",
+  "loan",
   "investments",
   "other",
 ];
@@ -32,6 +37,7 @@ const GROUP_TITLES: Record<AccountGroupId, string> = {
   cash: "Gotówka",
   foreign: "Konta walutowe",
   credit_card: "Karty kredytowe",
+  loan: "Kredyty i pożyczki",
   investments: "Inwestycje",
   other: "Inne",
 };
@@ -83,7 +89,10 @@ function assignGroup(account: AccountsPageAccount): AccountGroupId {
   }
   if (account.account_type === "credit_card") return "credit_card";
   if (account.account_type === "cash") return "cash";
-  if (INVESTMENT_TYPES.has(account.account_type) || account.account_type === "loan") {
+  if (resolveAccountType(account.account_type, account.account_name) === "loan") {
+    return "loan";
+  }
+  if (INVESTMENT_TYPES.has(account.account_type)) {
     return "investments";
   }
   if (account.currency !== "PLN") return "foreign";
@@ -125,11 +134,7 @@ export function computeAccountsMetrics(accounts: AccountsPageAccount[]) {
     if (a.balance > 0) assets += a.balance;
     else if (a.balance < 0) liabilities += a.balance;
     if (a.account_type === "cash") cash += a.balance;
-    if (
-      INVESTMENT_TYPES.has(a.account_type) ||
-      a.account_type === "loan" ||
-      a.account_type === "broker"
-    ) {
+    if (INVESTMENT_TYPES.has(a.account_type) || a.account_type === "broker") {
       investments += a.balance;
     }
   }

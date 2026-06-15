@@ -28,8 +28,14 @@ export function isLiabilityAccountType(type: string): boolean {
 export const CREDIT_CARD_NAME_PATTERN =
   /\bkarta\b|credit\s*card|visa|mastercard|amex|american\s*express/i;
 
+export const LOAN_ACCOUNT_NAME_PATTERN = /pożyczone|hipoteczny/i;
+
+export function isLoanLedgerAccount(name: string): boolean {
+  return LOAN_ACCOUNT_NAME_PATTERN.test(name.trim());
+}
+
 export function inferAccountTypeFromName(name: string): AccountType {
-  if (/pożyczone|hipoteczny/i.test(name)) return "loan";
+  if (isLoanLedgerAccount(name)) return "loan";
   if (CREDIT_CARD_NAME_PATTERN.test(name)) return "credit_card";
   if (isAssetLedgerAccount(name)) return "other";
   if (/xtb|lokaty|obligacje|inwestycje|pzu|ikze|krypto|robo-doradca/i.test(name)) return "investment";
@@ -38,4 +44,14 @@ export function inferAccountTypeFromName(name: string): AccountType {
     return "bank";
   }
   return "other";
+}
+
+/** Typ z bazy lub wywnioskowany z nazwy (gdy w DB jest „other”). */
+export function resolveAccountType(
+  accountType: AccountType,
+  accountName: string
+): AccountType {
+  if (accountType !== "other") return accountType;
+  const inferred = inferAccountTypeFromName(accountName);
+  return inferred !== "other" ? inferred : accountType;
 }

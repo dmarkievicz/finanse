@@ -46,6 +46,7 @@ const groupConfig: Record<AccountGroupId, { icon: LucideIcon; bg: string; color:
     credit_card: { icon: CreditCard, bg: "bg-orange-50", color: "text-orange-600" },
     foreign: { icon: Globe, bg: "bg-violet-50", color: "text-violet-600" },
     cash: { icon: Wallet, bg: "bg-emerald-50", color: "text-emerald-600" },
+    loan: { icon: FileText, bg: "bg-red-50", color: "text-red-600" },
     investments: { icon: TrendingUp, bg: "bg-indigo-50", color: "text-indigo-700" },
     other: { icon: Coins, bg: "bg-slate-100", color: "text-slate-600" },
   };
