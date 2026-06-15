@@ -35,53 +35,47 @@ export function BudgetDashboardContent({ data }: BudgetDashboardContentProps) {
         performancePositive={data.performancePositive}
       />
 
-      <div className="grid gap-4 xl:grid-cols-12 xl:items-start">
-        <div className="xl:col-span-7">
-          <BudgetBreakdownTable
-            title={selection.breakdownTitle}
-            incomeRows={data.incomeRows}
-            incomeTotals={data.incomeTotals}
-            expenseRows={data.expenseRows}
-            expenseTotals={data.expenseTotals}
-            periodFrom={selection.from}
-            periodTo={selection.to}
+      <BudgetBreakdownTable
+        title={selection.breakdownTitle}
+        incomeRows={data.incomeRows}
+        incomeTotals={data.incomeTotals}
+        expenseRows={data.expenseRows}
+        expenseTotals={data.expenseTotals}
+        periodFrom={selection.from}
+        periodTo={selection.to}
+      />
+
+      <SummaryPanel title={selection.summaryTitle}>
+        <div className="grid gap-6 md:grid-cols-2">
+          <CategoryDonutChart
+            title="Przychody wg kategorii"
+            slices={data.incomeDonut}
+            total={data.incomeTotals.tracked}
+            accent="income"
+          />
+          <CategoryDonutChart
+            title="Wydatki wg kategorii"
+            slices={data.expenseDonut}
+            total={data.expenseTotals.tracked}
+            accent="expense"
           />
         </div>
+      </SummaryPanel>
 
-        <div className="space-y-4 xl:col-span-5">
-          <SummaryPanel title={selection.summaryTitle}>
-            <CategoryDonutChart
-              title="Przychody wg kategorii"
-              slices={data.incomeDonut}
-              total={data.incomeTotals.tracked}
-              accent="income"
-            />
-            <div className="border-t border-slate-100 pt-4">
-              <CategoryDonutChart
-                title="Wydatki wg kategorii"
-                slices={data.expenseDonut}
-                total={data.expenseTotals.tracked}
-                accent="expense"
-              />
-            </div>
-          </SummaryPanel>
-
-          {data.showMonthlyCharts && data.selection.resolvedYear != null && (
-            <>
-              <TrackedVsBudgetChart
-                data={data.monthlySeries}
-                highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
-                year={data.selection.resolvedYear}
-              />
-              <MonthlyPerformanceChart
-                data={data.monthlySeries}
-                highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
-                year={data.selection.resolvedYear}
-              />
-            </>
-          )}
+      {data.showMonthlyCharts && data.selection.resolvedYear != null && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TrackedVsBudgetChart
+            data={data.monthlySeries}
+            highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
+            year={data.selection.resolvedYear}
+          />
+          <MonthlyPerformanceChart
+            data={data.monthlySeries}
+            highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
+            year={data.selection.resolvedYear}
+          />
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -100,7 +94,7 @@ function EmptyPeriodState({ selection }: { selection: BudgetDashboardPageData["s
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
           href="/transactions/new"
-          className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           Dodaj transakcję
         </Link>

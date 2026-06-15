@@ -11,7 +11,7 @@ export function SummaryPanel({ title, children }: SummaryPanelProps) {
   return (
     <SectionCard padding="none" className="overflow-hidden">
       <DashboardSectionHeader title={title} />
-      <div className="space-y-3 p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </SectionCard>
   );
 }

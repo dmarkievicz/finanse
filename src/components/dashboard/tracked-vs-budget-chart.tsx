@@ -37,7 +37,7 @@ export function TrackedVsBudgetChart({ data, highlightMonth, year }: TrackedVsBu
   const hovered = hover != null ? data[hover] : null;
 
   return (
-    <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-slate-900">Wykonanie vs budżet</h3>
         <p className="mt-0.5 text-xs text-muted">Miesiące {year}</p>
@@ -131,7 +131,7 @@ export function TrackedVsBudgetChart({ data, highlightMonth, year }: TrackedVsBu
             })}
           </svg>
 
-          <div className="mt-3 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-[11px] text-muted">
+          <div className="mt-3 flex flex-wrap gap-3 border-t border-border pt-3 text-[11px] text-muted">
             <Legend color={COLORS.incomeTracked} label="Przychody (wyk.)" />
             <Legend color={COLORS.incomeBudget} label="Przychody (budżet)" />
             <Legend color={COLORS.expenseTracked} label="Wydatki (wyk.)" />

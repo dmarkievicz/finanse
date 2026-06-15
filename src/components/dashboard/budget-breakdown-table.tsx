@@ -16,6 +16,23 @@ interface BudgetBreakdownTableProps {
   periodTo: string;
 }
 
+const NUM = "px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap";
+const TH_NUM =
+  "px-3 py-2.5 text-right align-middle text-[11px] font-medium uppercase tracking-wide text-muted whitespace-nowrap";
+
+function BreakdownColGroup() {
+  return (
+    <colgroup>
+      <col />
+      <col style={{ width: "7.25rem" }} />
+      <col style={{ width: "7.25rem" }} />
+      <col style={{ width: "4.75rem" }} />
+      <col style={{ width: "7.25rem" }} />
+      <col style={{ width: "7.75rem" }} />
+    </colgroup>
+  );
+}
+
 export function BudgetBreakdownTable({
   title,
   incomeRows,
@@ -25,123 +42,147 @@ export function BudgetBreakdownTable({
   periodFrom,
   periodTo,
 }: BudgetBreakdownTableProps) {
+  const hasAnyRows = incomeRows.length > 0 || expenseRows.length > 0;
+
   return (
     <SectionCard padding="none" className="overflow-hidden">
       <DashboardSectionHeader title={title} />
 
-      <BreakdownSection
-        title="Przychody"
-        accent="income"
-        rows={incomeRows}
-        totals={incomeTotals}
-        isExpense={false}
-        periodFrom={periodFrom}
-        periodTo={periodTo}
-      />
-      <BreakdownSection
-        title="Wydatki"
-        accent="expense"
-        rows={expenseRows}
-        totals={expenseTotals}
-        isExpense
-        periodFrom={periodFrom}
-        periodTo={periodTo}
-      />
-    </SectionCard>
-  );
-}
-
-function BreakdownSection({
-  title,
-  accent,
-  rows,
-  totals,
-  isExpense,
-  periodFrom,
-  periodTo,
-}: {
-  title: string;
-  accent: "income" | "expense";
-  rows: BudgetBreakdownRow[];
-  totals: BudgetBreakdownTotals;
-  isExpense: boolean;
-  periodFrom: string;
-  periodTo: string;
-}) {
-  const txType = isExpense ? "expense" : "income";
-  const headerClass =
-    accent === "income"
-      ? "border-emerald-100 bg-emerald-50/70 text-emerald-800"
-      : "border-rose-100 bg-rose-50/70 text-rose-800";
-
-  return (
-    <div className="border-b border-slate-100 last:border-b-0">
-      <div className={cn("border-b px-4 py-2.5 text-xs font-semibold uppercase tracking-wide", headerClass)}>
-        {title}
-      </div>
-
-      {rows.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-muted">
-          Brak {isExpense ? "wydatków" : "przychodów"} w tym okresie
+      {!hasAnyRows ? (
+        <p className="px-4 py-10 text-center text-sm text-muted">
+          Brak przychodów i wydatków w tym okresie
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[760px] table-fixed border-collapse text-sm">
+            <BreakdownColGroup />
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50 text-left text-[11px] font-medium uppercase tracking-wide text-muted">
-                <th className="px-4 py-2.5">Kategoria</th>
-                <th className="px-3 py-2.5 text-right">Wykonanie</th>
-                <th className="px-3 py-2.5 text-right">Budżet</th>
-                <th className="px-3 py-2.5 text-right">% wyk.</th>
-                <th className="px-3 py-2.5 text-right">Pozostało</th>
-                <th className="px-4 py-2.5 text-right">
-                  {isExpense ? "Przekroczenie" : "Nadwyżka"}
+              <tr className="border-b border-border bg-slate-50/90">
+                <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-muted">
+                  Kategoria
                 </th>
+                <th className={TH_NUM}>Wykonanie</th>
+                <th className={TH_NUM}>Budżet</th>
+                <th className={TH_NUM}>% wyk.</th>
+                <th className={TH_NUM}>Pozostało</th>
+                <th className={cn(TH_NUM, "pr-4")}>Nadwyżka / przek.</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100/80">
-              {rows.map((row) => (
-                <BreakdownRow
-                  key={row.categoryId}
-                  row={row}
-                  isExpense={isExpense}
-                  href={
-                    row.categoryId === "__uncategorized__"
-                      ? `/transactions?type=${txType}&period=custom&from=${periodFrom}&to=${periodTo}`
-                      : `/transactions?type=${txType}&category=${row.categoryId}&period=custom&from=${periodFrom}&to=${periodTo}`
-                  }
-                />
-              ))}
-              <tr className="bg-slate-50/80 text-[13px] font-semibold text-slate-900">
-                <td className="px-4 py-3">Razem</td>
-                <td className="px-3 py-3 text-right tabular-nums">{formatPln(totals.tracked)}</td>
-                <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
-                  {totals.budget != null ? formatPln(totals.budget) : "—"}
-                </td>
-                <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
-                  {totals.completionPct != null ? formatPercent(totals.completionPct) : "—"}
-                </td>
-                <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
-                  {totals.remaining != null ? formatPln(totals.remaining) : "—"}
-                </td>
-                <td
-                  className={cn(
-                    "px-4 py-3 text-right tabular-nums",
-                    totals.excess > 0
-                      ? isExpense
-                        ? "text-rose-600"
-                        : "text-emerald-600"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {totals.excess > 0 ? formatPln(totals.excess) : formatPln(0)}
-                </td>
-              </tr>
+            <tbody className="divide-y divide-slate-100">
+              <SectionLabelRow label="Przychody" accent="income" />
+              {incomeRows.length === 0 ? (
+                <EmptySectionRow message="Brak przychodów w tym okresie" />
+              ) : (
+                <>
+                  {incomeRows.map((row) => (
+                    <BreakdownRow
+                      key={`income-${row.categoryId}`}
+                      row={row}
+                      isExpense={false}
+                      href={
+                        row.categoryId === "__uncategorized__"
+                          ? `/transactions?type=income&period=custom&from=${periodFrom}&to=${periodTo}`
+                          : `/transactions?type=income&category=${row.categoryId}&period=custom&from=${periodFrom}&to=${periodTo}`
+                      }
+                    />
+                  ))}
+                  <TotalsRow totals={incomeTotals} isExpense={false} />
+                </>
+              )}
+
+              <SectionLabelRow label="Wydatki" accent="expense" />
+              {expenseRows.length === 0 ? (
+                <EmptySectionRow message="Brak wydatków w tym okresie" />
+              ) : (
+                <>
+                  {expenseRows.map((row) => (
+                    <BreakdownRow
+                      key={`expense-${row.categoryId}`}
+                      row={row}
+                      isExpense
+                      href={
+                        row.categoryId === "__uncategorized__"
+                          ? `/transactions?type=expense&period=custom&from=${periodFrom}&to=${periodTo}`
+                          : `/transactions?type=expense&category=${row.categoryId}&period=custom&from=${periodFrom}&to=${periodTo}`
+                      }
+                    />
+                  ))}
+                  <TotalsRow totals={expenseTotals} isExpense />
+                </>
+              )}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+    </SectionCard>
+  );
+}
+
+function SectionLabelRow({
+  label,
+  accent,
+}: {
+  label: string;
+  accent: "income" | "expense";
+}) {
+  const styles =
+    accent === "income"
+      ? "bg-emerald-50/90 text-emerald-800 border-emerald-100"
+      : "bg-rose-50/90 text-rose-800 border-rose-100";
+
+  return (
+    <tr className={cn("border-y text-xs font-semibold uppercase tracking-wide", styles)}>
+      <td colSpan={6} className="px-4 py-2">
+        {label}
+      </td>
+    </tr>
+  );
+}
+
+function EmptySectionRow({ message }: { message: string }) {
+  return (
+    <tr>
+      <td colSpan={6} className="px-4 py-6 text-center text-sm text-muted">
+        {message}
+      </td>
+    </tr>
+  );
+}
+
+function TotalsRow({
+  totals,
+  isExpense,
+}: {
+  totals: BudgetBreakdownTotals;
+  isExpense: boolean;
+}) {
+  return (
+    <tr className="bg-slate-50/90 font-semibold text-slate-900">
+      <td className="px-4 py-3">Razem</td>
+      <td className={cn(NUM, "py-3")}>{formatPln(totals.tracked)}</td>
+      <td className={cn(NUM, "py-3 text-muted-foreground")}>
+        {totals.budget != null ? formatPln(totals.budget) : "—"}
+      </td>
+      <td className={cn(NUM, "py-3 text-muted-foreground")}>
+        {totals.completionPct != null ? formatPercent(totals.completionPct) : "—"}
+      </td>
+      <td className={cn(NUM, "py-3 text-muted-foreground")}>
+        {totals.remaining != null ? formatPln(totals.remaining) : "—"}
+      </td>
+      <td
+        className={cn(
+          NUM,
+          "py-3 pr-4",
+          totals.excess > 0
+            ? isExpense
+              ? "text-rose-600"
+              : "text-emerald-600"
+            : "text-muted-foreground"
+        )}
+      >
+        {totals.excess > 0 ? formatPln(totals.excess) : formatPln(0)}
+      </td>
+    </tr>
   );
 }
 
@@ -157,48 +198,41 @@ function BreakdownRow({
   const status = completionStatusClass(row.completionPct, isExpense);
 
   return (
-    <tr className="transition-colors hover:bg-slate-50/60">
-      <td className="px-4 py-2.5">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <Link
-            href={href}
-            className="font-medium text-slate-800 hover:text-slate-950 hover:underline"
-          >
-            {row.categoryName}
-          </Link>
-          {row.categoryId !== "__uncategorized__" && row.budget == null && row.tracked > 0 && (
-            <Link
-              href="/budgets"
-              className="text-[11px] text-slate-400 hover:text-slate-600"
-            >
+    <tr className="transition-colors hover:bg-slate-50/70">
+      <td className="px-4 py-2.5 align-middle">
+        <Link href={href} className="font-medium text-slate-800 hover:text-primary hover:underline">
+          {row.categoryName}
+        </Link>
+        {row.categoryId !== "__uncategorized__" && row.budget == null && row.tracked > 0 && (
+          <div>
+            <Link href="/budgets" className="text-[11px] text-muted hover:text-foreground">
               Ustaw budżet
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-slate-800">
-        {formatPln(row.tracked)}
-      </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+      <td className={cn(NUM, "text-slate-800")}>{formatPln(row.tracked)}</td>
+      <td className={cn(NUM, "text-muted-foreground")}>
         {row.budget != null ? formatPln(row.budget) : "—"}
       </td>
       <td
         className={cn(
-          "px-3 py-2.5 text-right tabular-nums",
-          status === "over" && "bg-rose-50/80 text-rose-700",
-          status === "warn" && "bg-amber-50/80 text-amber-800",
+          NUM,
+          status === "over" && "bg-rose-50 text-rose-700",
+          status === "warn" && "bg-amber-50 text-amber-800",
           status === "ok" && "text-emerald-700",
           status === "none" && "text-muted-foreground"
         )}
       >
         {row.completionPct != null ? formatPercent(row.completionPct) : "—"}
       </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+      <td className={cn(NUM, "text-muted-foreground")}>
         {row.remaining != null ? formatPln(row.remaining) : "—"}
       </td>
       <td
         className={cn(
-          "px-4 py-2.5 text-right tabular-nums",
+          NUM,
+          "pr-4",
           row.excess > 0
             ? isExpense
               ? "font-medium text-rose-600"

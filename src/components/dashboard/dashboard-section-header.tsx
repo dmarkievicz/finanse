@@ -11,11 +11,11 @@ export function DashboardSectionHeader({ title, className, action }: DashboardSe
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 border-b border-border bg-slate-50/80 px-4 py-3",
+        "flex items-center justify-between gap-3 border-b border-white/10 bg-sidebar px-4 py-3",
         className
       )}
     >
-      <h2 className="text-sm font-semibold tracking-tight text-foreground">{title}</h2>
+      <h2 className="text-sm font-semibold tracking-tight text-sidebar-foreground">{title}</h2>
       {action}
     </div>
   );

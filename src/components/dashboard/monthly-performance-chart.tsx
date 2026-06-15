@@ -19,7 +19,7 @@ export function MonthlyPerformanceChart({
   const maxAbs = Math.max(...data.map((d) => Math.abs(d.performance)), 1);
 
   return (
-    <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-slate-900">Wynik miesięczny</h3>
         <p className="mt-0.5 text-xs text-muted">Przychody − wydatki · {year}</p>
