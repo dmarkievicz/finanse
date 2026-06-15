@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser, isAuthError } from "@/lib/api/auth";
 import { WEB_IMPORT_MAX_BYTES } from "@/lib/import/constants";
-import { runImportFromBuffer } from "@/lib/import/engine";
+import { previewImportFromBuffer } from "@/lib/import/engine";
 
 export async function POST(request: Request) {
   try {
@@ -10,8 +10,6 @@ export async function POST(request: Request) {
 
     const form = await request.formData();
     const file = form.get("file");
-    const force = form.get("force") === "true" || form.get("force") === "1";
-
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Brak pliku (pole file)" }, { status: 400 });
     }
@@ -28,18 +26,16 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const report = await runImportFromBuffer(
+    const preview = await previewImportFromBuffer(
       auth.supabase,
       auth.user.id,
       buffer,
-      file.name,
-      force
+      file.name
     );
 
-    return NextResponse.json({ ok: true, ...report });
+    return NextResponse.json(preview);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Błąd importu";
-    const status = message.includes("już importowany") ? 409 : 500;
-    return NextResponse.json({ error: message }, { status });
+    const message = err instanceof Error ? err.message : "Błąd podglądu importu";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

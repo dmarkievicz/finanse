@@ -18,8 +18,9 @@ export default async function ImportsPage() {
     <PageContainer>
       <PageHeader
         title="Import"
-        description="Wyczyść dane, zaimportuj ponownie z Excela, przeglądaj historię"
+        description="Importuj transakcje z Excela, przeglądaj status i historię"
       />
+      <ImportUpload />
       <ImportStats
         transactions={data.stats.transactions}
         accounts={data.stats.accounts}
@@ -33,10 +34,7 @@ export default async function ImportsPage() {
         errorRows={data.stats.errorRows}
         duplicateHashes={data.stats.duplicateHashes}
       />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ImportUpload />
-        <ClearDataPanel />
-      </div>
+      <ClearDataPanel />
       <ImportHistory imports={data.imports} />
     </PageContainer>
   );

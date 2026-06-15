@@ -1,5 +1,4 @@
 import { createHash } from "crypto";
-import readXlsxFile from "read-excel-file/node";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { inferAccountTypeFromName } from "@/lib/accounts/classification";
 import {
@@ -15,6 +14,12 @@ import {
   buildImportTransferAmounts,
 } from "@/lib/import/signed-amounts";
 import { signedAmountPln } from "@/lib/balances/invariants";
+import { WEB_IMPORT_MAX_ROWS } from "@/lib/import/constants";
+import { readExcelRowsFromBuffer } from "@/lib/import/excel-rows";
+
+/** Klient Supabase w silniku importu (luźniejsze typy niż ServerSupabaseClient). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- import engine używa tabel spoza wygenerowanego schematu
+type ImportSupabase = SupabaseClient<any, "public", any>;
 
 const BATCH_SIZE = 500;
 const CASH_ACCOUNT = "Gotówka PLN";
@@ -198,7 +203,7 @@ function validateRow(row: ReturnType<typeof normalizeRow>) {
   };
 }
 
-async function ensureAccounts(supabase: SupabaseClient, userId: string, names: string[]) {
+async function ensureAccounts(supabase: ImportSupabase, userId: string, names: string[]) {
   const { data: existing } = await supabase
     .from("accounts")
     .select("id, name")
@@ -224,7 +229,7 @@ async function ensureAccounts(supabase: SupabaseClient, userId: string, names: s
 }
 
 async function ensureCategories(
-  supabase: SupabaseClient,
+  supabase: ImportSupabase,
   userId: string,
   categories: { name: string; type: string }[],
   subcategories: { category: string; subcategory: string }[]
@@ -268,7 +273,7 @@ async function ensureCategories(
   return { catMap, subMap };
 }
 
-async function loadHashes(supabase: SupabaseClient, userId: string) {
+async function loadHashes(supabase: ImportSupabase, userId: string) {
   const hashes = new Set<string>();
   let from = 0;
   while (true) {
@@ -315,7 +320,7 @@ function resolveImportCategory(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function processBatch(supabase: SupabaseClient, userId: string, importId: string, batch: any[], accountMap: Map<string, string>, catMap: Map<string, string>, subMap: Map<string, string>, hashes: Set<string>, rules: CategorizationRule[]) {
+async function processBatch(supabase: ImportSupabase, userId: string, importId: string, batch: any[], accountMap: Map<string, string>, catMap: Map<string, string>, subMap: Map<string, string>, hashes: Set<string>, rules: CategorizationRule[]) {
   const stats = { imported: 0, skipped: 0, errors: 0, warnings: 0, needsReview: 0 };
   const rpcItems: ImportBatchItem[] = [];
 
@@ -455,45 +460,43 @@ async function processBatch(supabase: SupabaseClient, userId: string, importId: 
   return stats;
 }
 
-async function excelBufferToRows(buffer: Buffer): Promise<Record<string, unknown>[]> {
-  const matrix = await readXlsxFile(buffer);
-  if (!matrix?.length) return [];
-
-  const [headerRow, ...dataRows] = matrix;
-  const headers = headerRow.map((cell) =>
-    String(cell ?? "")
-      .trim()
-      .replace(/\s+/g, " ")
-  );
-
-  return dataRows
-    .filter((row) => row.some((cell) => cell != null && String(cell).trim() !== ""))
-    .map((row) => {
-      const obj: Record<string, unknown> = {};
-      for (let i = 0; i < headers.length; i++) {
-        const key = headers[i] || `col_${i}`;
-        obj[key] = row[i] ?? "";
-      }
-      return obj;
-    });
+export interface ImportPreview {
+  filename: string;
+  file_hash: string;
+  total_rows: number;
+  importable: number;
+  errors: number;
+  needs_review: number;
+  duplicates_in_file: number;
+  warnings: number;
+  accounts: string[];
+  categories: string[];
+  already_imported: boolean;
+  over_limit: boolean;
+  max_rows: number;
 }
 
-export async function runImportFromBuffer(
-  supabase: SupabaseClient,
-  userId: string,
+type ParsedImportItem = {
+  row: ReturnType<typeof normalizeRow>;
+  validation: ReturnType<typeof validateRow>;
+  importHash: string;
+  duplicateInFile: boolean;
+};
+
+async function parseImportFile(
   buffer: Buffer,
   filename: string,
-  force = false,
-  options?: { maxRows?: number }
-): Promise<ImportReport> {
+  maxRows?: number
+): Promise<{
+  fileHash: string;
+  rawRows: Record<string, unknown>[];
+  parsed: ParsedImportItem[];
+  overLimit: boolean;
+}> {
   const fileHash = createHash("sha256").update(buffer).digest("hex");
-  const rawRows = await excelBufferToRows(buffer);
-
-  if (options?.maxRows != null && rawRows.length > options.maxRows) {
-    throw new Error(
-      `Za dużo wierszy (${rawRows.length}) — limit importu web: ${options.maxRows}. Użyj: npm run import:excel`
-    );
-  }
+  const rawRows = await readExcelRowsFromBuffer(buffer);
+  const limit = maxRows ?? WEB_IMPORT_MAX_ROWS;
+  const overLimit = rawRows.length > limit;
 
   const parsed = rawRows.map((raw, i) => {
     const row = normalizeRow(raw, i + 2);
@@ -508,15 +511,106 @@ export async function runImportFromBuffer(
     else seen.add(item.importHash);
   }
 
+  return { fileHash, rawRows, parsed, overLimit };
+}
+
+function collectPreviewMeta(parsed: ParsedImportItem[]) {
+  const accountNames = new Set<string>([CASH_ACCOUNT]);
+  const categoryMap = new Map<string, string>();
+
+  for (const { row, validation } of parsed) {
+    if (validation.hasErrors) continue;
+    if (validation.txType === "income" && row.target_account) accountNames.add(row.target_account);
+    if (validation.txType === "expense") {
+      accountNames.add(validation.useCashAccount ? CASH_ACCOUNT : row.source_account);
+    }
+    if (
+      (validation.txType === "transfer" ||
+        validation.txType === "exchange" ||
+        validation.txType === "adjustment") &&
+      validation.canCreateEntries
+    ) {
+      if (row.source_account) accountNames.add(row.source_account);
+      if (row.target_account) accountNames.add(row.target_account);
+    }
+    if (row.category && validation.txType !== "transfer") {
+      categoryMap.set(row.category, validation.txType === "income" ? "income" : "expense");
+    }
+  }
+
+  return {
+    accounts: [...accountNames].filter(Boolean).sort(),
+    categories: [...categoryMap.keys()].sort(),
+  };
+}
+
+export async function previewImportFromBuffer(
+  supabase: ServerSupabaseClient,
+  userId: string,
+  buffer: Buffer,
+  filename: string,
+  maxRows = WEB_IMPORT_MAX_ROWS
+): Promise<ImportPreview> {
+  const db = supabase as unknown as ImportSupabase;
+  const { fileHash, rawRows, parsed, overLimit } = await parseImportFile(buffer, filename, maxRows);
+
+  const { data: prior } = await db
+    .from("imports")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("file_hash", fileHash)
+    .eq("status", "imported")
+    .maybeSingle();
+
+  const importable = parsed.filter(
+    (p) => !p.validation.hasErrors && !p.duplicateInFile
+  ).length;
+
+  return {
+    filename,
+    file_hash: fileHash,
+    total_rows: rawRows.length,
+    importable,
+    errors: parsed.filter((p) => p.validation.hasErrors).length,
+    needs_review: parsed.filter((p) => p.validation.needsReview && !p.validation.hasErrors).length,
+    duplicates_in_file: parsed.filter((p) => p.duplicateInFile).length,
+    warnings: parsed.reduce((s, p) => s + p.validation.warnings.length, 0),
+    already_imported: Boolean(prior),
+    over_limit: overLimit,
+    max_rows: maxRows,
+    ...collectPreviewMeta(parsed),
+  };
+}
+
+export async function runImportFromBuffer(
+  supabase: ServerSupabaseClient,
+  userId: string,
+  buffer: Buffer,
+  filename: string,
+  force = false,
+  options?: { maxRows?: number }
+): Promise<ImportReport> {
+  const db = supabase as unknown as ImportSupabase;
+  const maxRows = options?.maxRows ?? WEB_IMPORT_MAX_ROWS;
+  const { fileHash, rawRows, parsed, overLimit } = await parseImportFile(buffer, filename, maxRows);
+
+  if (overLimit) {
+    throw new Error(
+      `Za dużo wierszy (${rawRows.length}) — limit importu web: ${maxRows}. Użyj: npm run import:excel`
+    );
+  }
+
   if (!force) {
-    const { data: prior } = await supabase
+    const { data: prior } = await db
       .from("imports")
       .select("id")
       .eq("user_id", userId)
       .eq("file_hash", fileHash)
       .eq("status", "imported")
       .maybeSingle();
-    if (prior) throw new Error("Ten plik był już importowany. Wyczyść dane lub użyj opcji wymuś.");
+    if (prior) {
+      throw new Error("Ten plik był już importowany. Zaznacz „Wymuś ponowny import” lub wyczyść dane.");
+    }
   }
 
   const accountNames = new Set([CASH_ACCOUNT]);
@@ -544,14 +638,11 @@ export async function runImportFromBuffer(
     }
   }
 
-  const hashes = await loadHashes(supabase, userId);
-  const rules = await loadActiveCategorizationRules(
-    supabase as unknown as ServerSupabaseClient,
-    userId
-  );
-  const accountMap = await ensureAccounts(supabase, userId, [...accountNames]);
+  const hashes = await loadHashes(db, userId);
+  const rules = await loadActiveCategorizationRules(supabase, userId);
+  const accountMap = await ensureAccounts(db, userId, [...accountNames]);
   const { catMap, subMap } = await ensureCategories(
-    supabase,
+    db,
     userId,
     [...categoryMap.entries()].map(([name, type]) => ({ name, type })),
     [...subSet].map((k) => {
@@ -560,7 +651,7 @@ export async function runImportFromBuffer(
     })
   );
 
-  const { data: imp, error: impErr } = await supabase
+  const { data: imp, error: impErr } = await db
     .from("imports")
     .insert({
       user_id: userId,
@@ -577,7 +668,7 @@ export async function runImportFromBuffer(
 
   for (let i = 0; i < parsed.length; i += BATCH_SIZE) {
     const batch = parsed.slice(i, i + BATCH_SIZE);
-    const s = await processBatch(supabase, userId, imp.id, batch, accountMap, catMap, subMap, hashes, rules);
+    const s = await processBatch(db, userId, imp.id, batch, accountMap, catMap, subMap, hashes, rules);
     totals.imported += s.imported;
     totals.skipped += s.skipped;
     totals.errors += s.errors;
@@ -585,7 +676,7 @@ export async function runImportFromBuffer(
     totals.needsReview += s.needsReview;
   }
 
-  await supabase
+  await db
     .from("imports")
     .update({
       status: "imported",
