@@ -59,7 +59,7 @@ export function BullionSpotTicker({
       if (data.spot) {
         setPricePerGram(data.spot.pricePlnPerGram);
         setSource(data.spot.source);
-        setFetchedAt(data.spot.fetchedAt);
+        setFetchedAt(data.fetchedAt);
       }
       router.refresh();
     } catch (err) {
@@ -72,27 +72,30 @@ export function BullionSpotTicker({
   const pricePerOz = pricePerGram != null ? pricePerGram * TROY_OZ_GRAMS : null;
 
   return (
-    <div className="mb-8 overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-950/80 via-stone-900/90 to-stone-950 shadow-2xl shadow-amber-950/50">
-      <div className="flex flex-wrap items-stretch">
-        <div className="flex flex-1 flex-col justify-center border-b border-white/5 p-5 sm:border-b-0 sm:border-r">
-          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest text-amber-400/80">
-            <Activity className="h-3.5 w-3.5 animate-pulse" />
-            Live · XAU / PLN
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+      <div
+        className="flex flex-wrap items-stretch border-b border-border/60"
+        style={{ background: "linear-gradient(90deg, #d9770614, transparent)" }}
+      >
+        <div className="flex flex-1 flex-col justify-center border-b border-border/60 p-4 sm:border-b-0 sm:border-r sm:p-5">
+          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest text-amber-700">
+            <Activity className="h-3.5 w-3.5" />
+            Cena spot · XAU / PLN
           </div>
-          <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-amber-50 sm:text-4xl">
+          <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-foreground sm:text-3xl">
             {loading && pricePerGram == null ? (
-              <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+              <Loader2 className="h-7 w-7 animate-spin text-amber-600" />
             ) : pricePerGram != null ? (
               formatPln(pricePerGram)
             ) : (
               "—"
             )}
             {pricePerGram != null && (
-              <span className="ml-2 text-base font-normal text-amber-200/60">/ g czystego</span>
+              <span className="ml-2 text-sm font-normal text-muted">/ g czystego</span>
             )}
           </p>
           {pricePerOz != null && (
-            <p className="mt-1 text-[13px] tabular-nums text-stone-400">
+            <p className="mt-1 text-[13px] tabular-nums text-muted">
               {formatPln(pricePerOz)} / uncja · {source}
               {fetchedAt && ` · ${new Date(fetchedAt).toLocaleTimeString("pl-PL")}`}
             </p>
@@ -103,7 +106,7 @@ export function BullionSpotTicker({
             type="button"
             onClick={() => void refreshSpot()}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-[13px] font-medium text-stone-200 transition hover:bg-white/10 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-[13px] font-medium text-foreground transition hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             Odśwież
@@ -112,7 +115,7 @@ export function BullionSpotTicker({
             type="button"
             onClick={() => void syncAllPrices()}
             disabled={syncing}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 px-4 py-2.5 text-[13px] font-semibold text-stone-950 shadow-lg shadow-amber-900/40 transition hover:from-amber-500 hover:to-amber-400 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-amber-500 disabled:opacity-50"
           >
             {syncing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -123,7 +126,9 @@ export function BullionSpotTicker({
           </button>
         </div>
       </div>
-      {error && <p className="border-t border-white/5 px-5 py-2 text-[12px] text-rose-400">{error}</p>}
+      {error && (
+        <p className="border-t border-border/60 px-4 py-2 text-[12px] text-red-600 sm:px-5">{error}</p>
+      )}
     </div>
   );
 }

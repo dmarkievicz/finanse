@@ -5,7 +5,6 @@ import {
   type BullionKind,
 } from "@/lib/gold/bullion-metadata";
 import type { VaultCoinSeries } from "@/lib/gold/coin-stock-images";
-import { stockImageForSeries } from "@/lib/gold/coin-stock-images";
 
 export interface AddVaultCoinInput {
   portfolio_id: string;
@@ -21,7 +20,6 @@ export interface AddVaultCoinInput {
   purchase_date?: string;
   mint?: string;
   bullion_kind?: BullionKind;
-  image_url?: string;
   notes?: string;
 }
 
@@ -36,7 +34,6 @@ export async function addVaultCoin(
 ): Promise<{ instrumentId: string }> {
   const currentValue = input.current_value_pln ?? input.purchase_price_pln;
   const series = input.series;
-  const imageUrl = input.image_url ?? (series ? stockImageForSeries(series) : undefined);
 
   const metadata = {
     ...buildGoldBullionMetadata({
@@ -54,7 +51,6 @@ export async function addVaultCoin(
     vault_col: input.vault_col,
     coin_series: series,
     current_value_pln: currentValue,
-    image_url: imageUrl,
     notes: input.notes,
   };
 

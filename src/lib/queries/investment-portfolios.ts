@@ -1,5 +1,7 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
+import { vaultCoinMarketValuePln } from "@/lib/gold/coin-dealer-pricing";
+import { fetchGoldSpotPrice } from "@/lib/gold/spot-price";
 import {
   PORTFOLIO_KIND_LABELS,
   inferPortfolioKindFromAccountName,
@@ -92,11 +94,12 @@ async function fetchCollectibleSums(
 
 async function fetchVaultSums(
   supabase: ServerSupabaseClient,
-  ledgerAccountId: string
+  ledgerAccountId: string,
+  spotPlnPerOz: number | null
 ): Promise<{ current: number; purchase: number }> {
   const { data, error } = await supabase
     .from("instruments")
-    .select("metadata")
+    .select("name, metadata")
     .eq("instrument_type", "GOLD")
     .is("deleted_at", null)
     .eq("is_active", true)
@@ -107,11 +110,16 @@ async function fetchVaultSums(
   let current = 0;
   let purchase = 0;
   for (const row of data ?? []) {
-    const meta = (row as { metadata: Record<string, unknown> }).metadata ?? {};
+    const inst = row as { name: string; metadata: Record<string, unknown> };
+    const meta = inst.metadata ?? {};
     const pid = String(meta.portfolio_id ?? "");
     if (pid !== ledgerAccountId) continue;
     const purchasePrice = Number(meta.purchase_price_pln ?? 0);
-    const currentValue = Number(meta.current_value_pln ?? purchasePrice);
+    const currentValue = vaultCoinMarketValuePln({
+      name: inst.name,
+      metadata: meta,
+      spotPlnPerOz,
+    });
     purchase += purchasePrice;
     current += currentValue;
   }
@@ -243,6 +251,14 @@ export async function fetchInvestmentPortfolios(
   const sources = await loadPortfolioSources(supabase, user.id);
   const rows: InvestmentPortfolioRow[] = [];
 
+  let spotPlnPerOz: number | null = null;
+  try {
+    const spot = await fetchGoldSpotPrice();
+    spotPlnPerOz = spot.pricePlnPerOz;
+  } catch {
+    spotPlnPerOz = null;
+  }
+
   for (const source of sources) {
     const transfer_net_pln = await transferNetPln(
       supabase,
@@ -252,7 +268,7 @@ export async function fetchInvestmentPortfolios(
     const ledgerId = source.ledger_account_id;
     const vault =
       source.portfolio_kind === "gold"
-        ? await fetchVaultSums(supabase, ledgerId)
+        ? await fetchVaultSums(supabase, ledgerId, spotPlnPerOz)
         : { current: 0, purchase: 0 };
     const collectibles =
       source.portfolio_kind === "lego"

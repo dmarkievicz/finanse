@@ -37,7 +37,7 @@ export function BullionCoinPhoto({ instrumentId, alt, className }: BullionCoinPh
   if (loading) {
     return (
       <div
-        className={`flex items-center justify-center bg-stone-900 text-amber-800 ${className ?? ""}`}
+        className={`flex items-center justify-center bg-slate-50 text-amber-600 ${className ?? ""}`}
       >
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
@@ -47,16 +47,16 @@ export function BullionCoinPhoto({ instrumentId, alt, className }: BullionCoinPh
   if (!url) {
     return (
       <div
-        className={`flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-amber-950/50 to-stone-900 text-amber-800/60 ${className ?? ""}`}
+        className={`flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-amber-50 to-slate-50 text-amber-500/70 ${className ?? ""}`}
       >
-        <ImageIcon className="h-10 w-10" />
-        <span className="text-[10px] uppercase tracking-wider">Au</span>
+        <ImageIcon className="h-8 w-8" />
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted">Brak zdjęcia</span>
       </div>
     );
   }
 
   return (
-    <div className={`relative overflow-hidden bg-stone-900 ${className ?? ""}`}>
+    <div className={`relative overflow-hidden bg-slate-50 ${className ?? ""}`}>
       <Image src={url} alt={alt} fill className="object-cover" unoptimized />
     </div>
   );

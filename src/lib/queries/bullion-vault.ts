@@ -4,11 +4,11 @@ import {
   parseGoldBullionMetadata,
   type GoldBullionMetadata,
 } from "@/lib/gold/bullion-metadata";
+import { vaultCoinMarketValuePln } from "@/lib/gold/coin-dealer-pricing";
+import { fetchGoldSpotPrice, type GoldSpotPrice } from "@/lib/gold/spot-price";
 import type { VaultCoinSeries } from "@/lib/gold/coin-stock-images";
-import { coinImageProxyPath } from "@/lib/gold/coin-image-sources";
 import {
   inferCoinSeriesFromName,
-  VAULT_SERIES_COLUMNS,
   VAULT_SERIES_LABELS,
   VAULT_WEIGHT_ROWS,
 } from "@/lib/gold/coin-stock-images";
@@ -31,7 +31,6 @@ export interface VaultCoinItem {
   vault_col: number | null;
   vault_slot: "grid" | "eagle";
   coin_series: VaultCoinSeries | null;
-  image_url: string | null;
   mint: string | null;
 }
 
@@ -42,10 +41,12 @@ export interface BullionVaultData {
   grid: (VaultCoinItem | null)[][];
   totalVaultPurchase: number;
   totalVaultCurrent: number;
+  spot: GoldSpotPrice | null;
 }
 
 function mapVaultCoin(
-  inst: { id: string; name: string; metadata: Record<string, unknown> }
+  inst: { id: string; name: string; metadata: Record<string, unknown> },
+  spotPlnPerOz: number | null
 ): VaultCoinItem | null {
   const meta = inst.metadata ?? {};
   const bullion =
@@ -56,7 +57,11 @@ function mapVaultCoin(
     } as GoldBullionMetadata);
 
   const purchase = Number(meta.purchase_price_pln ?? bullion.purchase_price_pln ?? 0);
-  const current = Number(meta.current_value_pln ?? purchase);
+  const current = vaultCoinMarketValuePln({
+    name: inst.name,
+    metadata: meta,
+    spotPlnPerOz,
+  });
   const slot = meta.vault_slot === "eagle" ? "eagle" : "grid";
 
   const series =
@@ -73,7 +78,6 @@ function mapVaultCoin(
     vault_col: meta.vault_col != null ? Number(meta.vault_col) : null,
     vault_slot: slot,
     coin_series: series,
-    image_url: series ? coinImageProxyPath(series) : null,
     mint: bullion.mint ?? null,
   };
 }
@@ -102,9 +106,19 @@ export async function fetchBullionVault(
   const { data: rows, error } = await coinsQuery;
   if (error) throw error;
 
+  let spot: GoldSpotPrice | null = null;
+  try {
+    spot = await fetchGoldSpotPrice();
+  } catch {
+    spot = null;
+  }
+
   const coins = (rows ?? [])
     .map((r) =>
-      mapVaultCoin(r as { id: string; name: string; metadata: Record<string, unknown> })
+      mapVaultCoin(
+        r as { id: string; name: string; metadata: Record<string, unknown> },
+        spot?.pricePlnPerOz ?? null
+      )
     )
     .filter((c): c is VaultCoinItem => c != null);
 
@@ -129,6 +143,7 @@ export async function fetchBullionVault(
     grid,
     totalVaultPurchase,
     totalVaultCurrent,
+    spot,
   };
 }
 

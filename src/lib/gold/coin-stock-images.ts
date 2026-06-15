@@ -1,8 +1,3 @@
-import {
-  COIN_UPSTREAM_IMAGES,
-  coinImageProxyPath,
-} from "@/lib/gold/coin-image-sources";
-
 export type VaultCoinSeries =
   | "kangaroo"
   | "britannia"
@@ -35,14 +30,6 @@ export const VAULT_SERIES_COLUMNS: VaultCoinSeries[] = [
   "krugerrand",
 ];
 
-export function stockImageForSeries(series: VaultCoinSeries): string {
-  return coinImageProxyPath(series);
-}
-
-export function upstreamImageForSeries(series: VaultCoinSeries): string {
-  return COIN_UPSTREAM_IMAGES[series];
-}
-
 export function inferCoinSeriesFromName(name: string): VaultCoinSeries | null {
   const n = name.toLowerCase();
   if (n.includes("kangur")) return "kangaroo";
@@ -52,8 +39,4 @@ export function inferCoinSeriesFromName(name: string): VaultCoinSeries | null {
   if (n.includes("krugerrand")) return "krugerrand";
   if (n.includes("orzeł") || n.includes("orzel") || n.includes("eagle")) return "eagle";
   return null;
-}
-
-export function localCoinImagePath(series: VaultCoinSeries): string {
-  return `/coins/${series}.svg`;
 }

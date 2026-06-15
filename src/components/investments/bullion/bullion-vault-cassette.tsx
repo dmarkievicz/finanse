@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import type { VaultCoinItem } from "@/lib/queries/bullion-vault";
 import {
@@ -8,7 +8,7 @@ import {
   VAULT_SERIES_LABELS,
   VAULT_WEIGHT_ROWS,
 } from "@/lib/gold/coin-stock-images";
-import { CoinVaultImage } from "@/components/investments/bullion/coin-vault-image";
+import { BullionCoinPhoto } from "@/components/investments/bullion/bullion-coin-photo";
 import { formatPln } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Vault } from "lucide-react";
@@ -19,6 +19,7 @@ const SERIES_SHORT: Record<string, string> = {
   philharmonic: "Filharmonik",
   maple: "Klon",
   krugerrand: "Krugerrand",
+  eagle: "Orzeł",
 };
 
 interface BullionVaultCassetteProps {
@@ -27,12 +28,13 @@ interface BullionVaultCassetteProps {
 }
 
 export function BullionVaultCassette({ grid, eagle }: BullionVaultCassetteProps) {
-  const filled = grid.flat().filter(Boolean).length + (eagle ? 1 : 0);
+  const gridFilled = grid.flat().filter(Boolean).length;
+  const totalFilled = gridFilled + (eagle ? 1 : 0);
 
-  if (filled === 0) {
+  if (totalFilled === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-amber-200/80 bg-gradient-to-b from-amber-50/50 to-card py-20 text-center">
-        <Vault className="mx-auto h-12 w-12 text-amber-300" />
+      <div className="rounded-xl border border-dashed border-border bg-card py-20 text-center">
+        <Vault className="mx-auto h-12 w-12 text-amber-400" />
         <p className="mt-4 text-base font-medium text-foreground">Sejf jest pusty</p>
         <p className="mt-1 text-[13px] text-muted">Dodaj monety przyciskiem powyżej</p>
       </div>
@@ -40,78 +42,115 @@ export function BullionVaultCassette({ grid, eagle }: BullionVaultCassetteProps)
   }
 
   return (
-    <section className="space-y-8">
-      <div className="overflow-hidden rounded-2xl border border-amber-200/60 bg-gradient-to-b from-stone-900 via-stone-900 to-stone-950 p-4 shadow-xl sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-amber-200/90">
-            <Vault className="h-4 w-4" />
-            Kasetki · 4 × 5
-          </h2>
-          <span className="text-[12px] text-amber-200/50">{filled} monet</span>
-        </div>
+    <section className="space-y-6">
+      {gridFilled > 0 && (
+        <CassettePanel title="Kasetka · 4 × 5" coinCount={gridFilled}>
+          <CassetteGrid columns={VAULT_SERIES_COLUMNS.length}>
+            <div />
+            {VAULT_SERIES_COLUMNS.map((s) => (
+              <SeriesHeader key={s} short={SERIES_SHORT[s]} label={VAULT_SERIES_LABELS[s]} />
+            ))}
 
-        <div className="overflow-x-auto pb-1">
-          <div className="min-w-[720px]">
-            <div
-              className="grid gap-3"
-              style={{ gridTemplateColumns: `5rem repeat(5, minmax(7.5rem, 1fr))` }}
-            >
-              <div />
-              {VAULT_SERIES_COLUMNS.map((s) => (
-                <div
-                  key={s}
-                  className="rounded-lg bg-amber-950/40 px-2 py-2 text-center"
-                >
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-100">
-                    {SERIES_SHORT[s]}
-                  </p>
-                  <p className="mt-0.5 truncate text-[9px] text-amber-200/40">
-                    {VAULT_SERIES_LABELS[s]}
-                  </p>
-                </div>
-              ))}
-
-              {VAULT_WEIGHT_ROWS.map((weightRow, ri) => (
-                <Fragment key={weightRow.row}>
-                  <div className="flex flex-col items-end justify-center pr-2 text-right">
-                    <span className="text-sm font-bold text-amber-100">{weightRow.label}</span>
-                    <span className="text-[10px] text-amber-200/40">waga</span>
-                  </div>
-                  {grid[ri].map((coin, ci) => (
-                    <VaultCell key={`${ri}-${ci}`} coin={coin} />
-                  ))}
-                </Fragment>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+            {VAULT_WEIGHT_ROWS.map((weightRow, ri) => (
+              <Fragment key={weightRow.row}>
+                <WeightLabel label={weightRow.label} />
+                {grid[ri].map((coin, ci) => (
+                  <VaultCell key={`${ri}-${ci}`} coin={coin} />
+                ))}
+              </Fragment>
+            ))}
+          </CassetteGrid>
+        </CassettePanel>
+      )}
 
       {eagle && (
-        <div className="rounded-2xl border border-amber-200/50 bg-card p-5 shadow-sm">
-          <h2 className="mb-4 text-[15px] font-semibold text-foreground">
-            Osobna szuflada — Amerykański Orzeł
-          </h2>
-          <div className="mx-auto max-w-sm">
-            <VaultCell coin={eagle} large />
-          </div>
-        </div>
+        <CassettePanel title="Kasetka · Orzeł" coinCount={1}>
+          <CassetteGrid columns={1}>
+            <div />
+            <SeriesHeader short={SERIES_SHORT.eagle} label={VAULT_SERIES_LABELS.eagle} />
+            <WeightLabel label="1 oz" />
+            <VaultCell coin={eagle} />
+          </CassetteGrid>
+        </CassettePanel>
       )}
     </section>
   );
 }
 
-function VaultCell({ coin, large }: { coin: VaultCoinItem | null; large?: boolean }) {
+function CassettePanel({
+  title,
+  coinCount,
+  children,
+}: {
+  title: string;
+  coinCount: number;
+  children: ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+      <div
+        className="flex items-center justify-between border-b border-border/60 px-4 py-3.5 sm:px-5"
+        style={{
+          background: "linear-gradient(90deg, #d9770614, transparent)",
+          borderColor: "#d9770625",
+        }}
+      >
+        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+          <Vault className="h-4 w-4 text-amber-600" />
+          {title}
+        </h2>
+        <span className="text-[12px] text-muted">{coinCount} monet</span>
+      </div>
+
+      <div className="overflow-x-auto p-4 sm:p-5">{children}</div>
+    </div>
+  );
+}
+
+function CassetteGrid({
+  columns,
+  children,
+}: {
+  columns: number;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="grid gap-3"
+      style={{
+        gridTemplateColumns: `5rem repeat(${columns}, minmax(7.5rem, 1fr))`,
+        minWidth: columns === 1 ? undefined : "720px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SeriesHeader({ short, label }: { short: string; label: string }) {
+  return (
+    <div className="rounded-lg border border-amber-200/60 bg-amber-50/80 px-2 py-2 text-center">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">{short}</p>
+      <p className="mt-0.5 truncate text-[9px] text-muted">{label}</p>
+    </div>
+  );
+}
+
+function WeightLabel({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-end justify-center pr-2 text-right">
+      <span className="text-sm font-bold text-foreground">{label}</span>
+      <span className="text-[10px] text-muted">waga</span>
+    </div>
+  );
+}
+
+function VaultCell({ coin }: { coin: VaultCoinItem | null }) {
   if (!coin) {
     return (
-      <div
-        className={cn(
-          "flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-900/50 bg-amber-950/20",
-          large && "aspect-[5/4]"
-        )}
-      >
-        <div className="h-8 w-8 rounded-full border border-amber-800/30 bg-amber-950/30" />
-        <span className="mt-2 text-[9px] uppercase tracking-wider text-amber-200/25">pusto</span>
+      <div className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-slate-50/80">
+        <div className="h-8 w-8 rounded-full border border-border bg-card" />
+        <span className="mt-2 text-[9px] uppercase tracking-wider text-muted">pusto</span>
       </div>
     );
   }
@@ -121,29 +160,27 @@ function VaultCell({ coin, large }: { coin: VaultCoinItem | null; large?: boolea
   return (
     <Link
       href={`/investments/${coin.id}`}
-      className={cn(
-        "group relative overflow-hidden rounded-xl ring-2 ring-amber-600/40 ring-offset-2 ring-offset-stone-900 transition duration-300 hover:ring-amber-400/70 hover:shadow-lg hover:shadow-amber-900/40",
-        large ? "aspect-[5/4]" : "aspect-square"
-      )}
+      className="group flex aspect-square flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition hover:border-amber-300/80 hover:shadow-md"
     >
-      <CoinVaultImage
-        series={coin.coin_series}
-        imageUrl={coin.image_url}
-        alt={coin.name}
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-90" />
-      <div className="absolute inset-x-0 bottom-0 p-2.5">
-        <p className="line-clamp-2 text-[10px] font-semibold leading-tight text-white">
+      <div className="relative h-[55%] w-full shrink-0 overflow-hidden bg-slate-50">
+        <BullionCoinPhoto
+          instrumentId={coin.id}
+          alt={coin.name}
+          className="absolute inset-0 h-full w-full"
+        />
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col justify-between p-2">
+        <p className="line-clamp-2 text-[10px] font-semibold leading-tight text-foreground">
           {coin.name}
         </p>
         <div className="mt-1 flex items-baseline justify-between gap-1">
-          <span className="text-[11px] font-bold tabular-nums text-amber-200">
+          <span className="text-[11px] font-bold tabular-nums text-foreground">
             {formatPln(coin.current_value_pln)}
           </span>
           <span
             className={cn(
               "text-[10px] font-medium tabular-nums",
-              pnl >= 0 ? "text-emerald-400" : "text-red-400"
+              pnl >= 0 ? "text-emerald-600" : "text-red-600"
             )}
           >
             {pnl >= 0 ? "+" : ""}

@@ -44,8 +44,8 @@ export function BullionHero({
             Twój sejf złota
           </h1>
           <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-muted">
-            Kapitał włożony liczy się z transferów Excela (np. mBank → ZŁOTO). Monety w
-            kasetkach to szczegóły — wartość realną możesz nadpisać ręcznie.
+            Kapitał włożony liczy się z transferów Excela (np. mBank → ZŁOTO). Wartość monet
+            w kasetkach jest liczona na żywo ze spotu XAU/PLN i marży skupu.
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export function BullionHero({
           portfolioId={portfolio.id}
           label="Wartość realna portfela złota"
           value={portfolio.manual_market_value_pln}
-          hint={`Suma cen skupu w Vault: ${formatPln(vaultCurrentTotal)}`}
+          hint={`Wycena monet w Vault (spot + marża): ${formatPln(vaultCurrentTotal)}`}
         />
       )}
     </header>
