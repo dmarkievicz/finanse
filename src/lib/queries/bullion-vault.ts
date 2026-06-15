@@ -5,9 +5,9 @@ import {
   type GoldBullionMetadata,
 } from "@/lib/gold/bullion-metadata";
 import type { VaultCoinSeries } from "@/lib/gold/coin-stock-images";
+import { coinImageProxyPath } from "@/lib/gold/coin-image-sources";
 import {
   inferCoinSeriesFromName,
-  stockImageForSeries,
   VAULT_SERIES_COLUMNS,
   VAULT_SERIES_LABELS,
   VAULT_WEIGHT_ROWS,
@@ -61,8 +61,6 @@ function mapVaultCoin(
 
   const series =
     (meta.coin_series as VaultCoinSeries) ?? inferCoinSeriesFromName(inst.name);
-  const imageFromMeta = typeof meta.image_url === "string" ? meta.image_url : null;
-
   return {
     id: inst.id,
     name: inst.name,
@@ -75,7 +73,7 @@ function mapVaultCoin(
     vault_col: meta.vault_col != null ? Number(meta.vault_col) : null,
     vault_slot: slot,
     coin_series: series,
-    image_url: imageFromMeta ?? (series ? stockImageForSeries(series) : null),
+    image_url: series ? coinImageProxyPath(series) : null,
     mint: bullion.mint ?? null,
   };
 }

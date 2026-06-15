@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { coinImageProxyPath } from "@/lib/gold/coin-image-sources";
 import {
   localCoinImagePath,
-  stockImageForSeries,
   type VaultCoinSeries,
 } from "@/lib/gold/coin-stock-images";
 import { cn } from "@/lib/utils";
@@ -20,14 +20,14 @@ interface CoinVaultImageProps {
 }
 
 export function CoinVaultImage({ series, imageUrl, alt, className }: CoinVaultImageProps) {
-  const remote = imageUrl ?? (series ? stockImageForSeries(series) : null);
   const local = localCoinAsset(series);
+  const primary = series ? coinImageProxyPath(series) : imageUrl;
 
   const sources = useMemo(() => {
     const list: string[] = [local];
-    if (remote && remote !== local) list.unshift(remote);
+    if (primary && primary !== local) list.unshift(primary);
     return list;
-  }, [remote, local]);
+  }, [primary, local]);
 
   const [index, setIndex] = useState(0);
   const src = sources[Math.min(index, sources.length - 1)] ?? local;
