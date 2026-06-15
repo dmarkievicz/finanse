@@ -3,7 +3,6 @@
 import type { MonthlyBudgetPoint } from "@/lib/dashboard/budget-metrics";
 import { formatPln } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { SectionCard, SectionCardHeader } from "@/components/layout";
 
 interface MonthlyPerformanceChartProps {
   data: MonthlyBudgetPoint[];
@@ -20,54 +19,59 @@ export function MonthlyPerformanceChart({
   const maxAbs = Math.max(...data.map((d) => Math.abs(d.performance)), 1);
 
   return (
-    <SectionCard>
-      <SectionCardHeader
-        title="Wynik miesięczny"
-        subtitle={`Przychody − wydatki · ${year}`}
-      />
+    <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-slate-900">Wynik miesięczny</h3>
+        <p className="mt-0.5 text-xs text-muted">Przychody − wydatki · {year}</p>
+      </div>
 
       {withData.length === 0 ? (
-        <p className="py-8 text-center text-sm text-slate-500">Brak danych w tym roku</p>
+        <p className="py-8 text-center text-sm text-muted">Brak danych w tym roku</p>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {data.map((d) => {
             if (!d.hasData && d.performance === 0) {
               return (
                 <div
                   key={d.month}
-                  className="flex items-center gap-3 px-1 py-1 text-[12px] text-slate-300"
+                  className="grid grid-cols-[3rem_1fr_5rem] items-center gap-2 px-1 py-1 text-xs text-slate-300"
                 >
-                  <span className="w-16 shrink-0">{d.shortLabel}</span>
-                  <span className="flex-1">—</span>
+                  <span>{d.shortLabel}</span>
+                  <span>—</span>
+                  <span className="text-right">—</span>
                 </div>
               );
             }
+
             const pct = (Math.abs(d.performance) / maxAbs) * 100;
             const positive = d.performance >= 0;
             const isHighlight = highlightMonth === d.month;
+
             return (
               <div
                 key={d.month}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-1 py-1",
-                  isHighlight && "bg-slate-50"
+                  "grid grid-cols-[3rem_1fr_5rem] items-center gap-2 rounded-md px-1 py-1.5",
+                  isHighlight && "bg-slate-50 ring-1 ring-slate-200/80"
                 )}
               >
-                <span className="w-16 shrink-0 text-[12px] text-slate-500">{d.shortLabel}</span>
-                <div className="relative h-5 flex-1 overflow-hidden rounded bg-slate-100">
+                <span className="text-xs font-medium text-muted">{d.shortLabel}</span>
+                <div className="relative h-6 overflow-hidden rounded-md bg-slate-100">
+                  <div className="absolute left-1/2 top-0 h-full w-px bg-slate-300/80" />
                   <div
                     className={cn(
-                      "absolute top-0 h-full rounded transition-all",
-                      positive ? "left-1/2 bg-emerald-500" : "right-1/2 bg-rose-500"
+                      "absolute top-0 h-full rounded-sm transition-all",
+                      positive
+                        ? "left-1/2 bg-emerald-500/90"
+                        : "right-1/2 bg-rose-500/90"
                     )}
-                    style={{ width: `${pct / 2}%` }}
+                    style={{ width: `${Math.max(pct / 2, d.performance !== 0 ? 2 : 0)}%` }}
                   />
-                  <div className="absolute left-1/2 top-0 h-full w-px bg-slate-300" />
                 </div>
                 <span
                   className={cn(
-                    "w-20 shrink-0 text-right text-[12px] font-semibold tabular-nums",
-                    positive ? "text-emerald-600" : "text-rose-600"
+                    "text-right text-xs font-semibold tabular-nums",
+                    positive ? "text-emerald-700" : "text-rose-600"
                   )}
                 >
                   {formatPln(d.performance)}
@@ -77,6 +81,6 @@ export function MonthlyPerformanceChart({
           })}
         </div>
       )}
-    </SectionCard>
+    </div>
   );
 }

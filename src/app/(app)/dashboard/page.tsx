@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchBudgetDashboardPageData } from "@/lib/queries/fetch-budget-dashboard";
-import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/layout";
-import { DashboardPeriodSelector } from "@/components/dashboard/dashboard-period-selector";
+import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BudgetDashboardContent } from "@/components/dashboard/budget-dashboard-content";
 
 export const dynamic = "force-dynamic";
@@ -18,18 +17,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Pulpit finansowy"
-        description="Analiza budżetowa przychodów i wydatków · waluta bazowa PLN"
-        action={
-          <DashboardPeriodSelector
-            selection={data.selection}
-            yearOptions={data.yearOptions}
-          />
-        }
-      />
-
-      <BudgetDashboardContent data={data} />
+      <DashboardHeader selection={data.selection} yearOptions={data.yearOptions} />
+      <div className="mt-5">
+        <BudgetDashboardContent data={data} />
+      </div>
     </PageContainer>
   );
 }

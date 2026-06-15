@@ -13,7 +13,7 @@ import {
   sumBreakdownTotals,
   incomeDonutSlices,
   expenseDonutSlices,
-  performanceLabel,
+  performanceResult,
   type BudgetBreakdownRow,
   type BudgetBreakdownTotals,
   type DonutSlice,
@@ -41,14 +41,21 @@ interface BudgetRecord {
   limit_pln: number;
 }
 
+export interface BudgetStatusNotice {
+  title: string;
+  message: string;
+  actionLabel?: string;
+  actionHref?: string;
+}
+
 export interface BudgetDashboardPageData {
   selection: BudgetDashboardSelection;
   yearOptions: number[];
-  hasIncompleteBudgets: boolean;
-  budgetWarning: string | null;
+  budgetStatusNotice: BudgetStatusNotice | null;
   completionPct: number | null;
   balance: number;
-  performanceText: string;
+  performanceTitle: string;
+  performanceSubtitle: string;
   performancePositive: boolean;
   incomeRows: BudgetBreakdownRow[];
   incomeTotals: BudgetBreakdownTotals;
@@ -307,7 +314,7 @@ export async function fetchBudgetDashboardPageData(
     periodCashflow.expense_pln
   );
   const balance = periodCashflow.surplus_pln;
-  const perf = performanceLabel(balance);
+  const perf = performanceResult(balance);
 
   const incomeDonut = incomeDonutSlices(incomeRows, periodCashflow.income_pln);
   const expenseDonut = expenseDonutSlices(expenseRows, periodCashflow.expense_pln);
@@ -327,10 +334,20 @@ export async function fetchBudgetDashboardPageData(
   const hasIncompleteBudgets =
     !selection.isAllData && missingBudgetCount > 0 && categoriesWithSpend.size > 0;
 
-  const budgetWarning = selection.isAllData
-    ? "Budżety miesięczne nie są sumowane dla całej historii — poniżej wykonanie bez porównania do budżetu."
+  const budgetStatusNotice: BudgetStatusNotice | null = selection.isAllData
+    ? {
+        title: "Status budżetów",
+        message:
+          "Budżety miesięczne nie są sumowane dla całej historii — poniżej wykonanie bez porównania do budżetu.",
+      }
     : hasIncompleteBudgets
-      ? "Nie wszystkie kategorie mają ustawiony budżet. Uzupełnij budżety, aby uzyskać pełną analizę wykonania."
+      ? {
+          title: "Status budżetów",
+          message:
+            "Nie wszystkie kategorie mają budżet. Uzupełnij brakujące limity, aby uzyskać pełną analizę wykonania.",
+          actionLabel: "Uzupełnij budżety",
+          actionHref: "/budgets",
+        }
       : null;
 
   let monthlySeries: MonthlyBudgetPoint[] = [];
@@ -353,11 +370,11 @@ export async function fetchBudgetDashboardPageData(
   return {
     selection,
     yearOptions,
-    hasIncompleteBudgets,
-    budgetWarning,
+    budgetStatusNotice,
     completionPct: periodCompletionPct(selection),
     balance,
-    performanceText: perf.text,
+    performanceTitle: perf.title,
+    performanceSubtitle: perf.subtitle,
     performancePositive: perf.positive,
     incomeRows,
     incomeTotals,

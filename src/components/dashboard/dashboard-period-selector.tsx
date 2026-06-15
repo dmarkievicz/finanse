@@ -15,8 +15,8 @@ interface DashboardPeriodSelectorProps {
   yearOptions: number[];
 }
 
-const btnClass =
-  "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 shadow-sm hover:border-slate-300";
+const selectClass =
+  "h-9 appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-8 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200";
 
 export function DashboardPeriodSelector({
   selection,
@@ -47,9 +47,9 @@ export function DashboardPeriodSelector({
   const urlBase = { year: yearValue, period: periodValue };
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", pending && "opacity-70")}>
-      <label className="flex items-center gap-2">
-        <span className="text-[12px] font-medium text-slate-500">Rok</span>
+    <div className={cn("flex flex-wrap items-center gap-2", pending && "opacity-60")}>
+      <label className="flex items-center gap-1.5">
+        <span className="text-xs font-medium text-muted">Rok</span>
         <div className="relative">
           <select
             value={yearValue}
@@ -65,7 +65,7 @@ export function DashboardPeriodSelector({
               }
               navigate(buildBudgetDashboardUrl({ year, period }, urlBase));
             }}
-            className={cn(btnClass, "appearance-none pr-8")}
+            className={selectClass}
           >
             <option value="current">Bieżący rok</option>
             {yearOptions.map((y) => (
@@ -75,12 +75,12 @@ export function DashboardPeriodSelector({
             ))}
             <option value="all">Cała historia</option>
           </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
         </div>
       </label>
 
-      <label className="flex items-center gap-2">
-        <span className="text-[12px] font-medium text-slate-500">Okres</span>
+      <label className="flex items-center gap-1.5">
+        <span className="text-xs font-medium text-muted">Okres</span>
         <div className="relative">
           <select
             value={periodValue}
@@ -88,11 +88,7 @@ export function DashboardPeriodSelector({
             onChange={(e) => {
               navigate(buildBudgetDashboardUrl({ period: e.target.value }, urlBase));
             }}
-            className={cn(
-              btnClass,
-              "appearance-none pr-8",
-              selection.isAllData && "cursor-not-allowed opacity-50"
-            )}
+            className={cn(selectClass, selection.isAllData && "cursor-not-allowed opacity-50")}
           >
             {selection.isAllData ? (
               <option value="all_history">Cała historia</option>
@@ -108,7 +104,7 @@ export function DashboardPeriodSelector({
               </>
             )}
           </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
         </div>
       </label>
     </div>

@@ -135,10 +135,34 @@ export function expenseDonutSlices(rows: BudgetBreakdownRow[], total: number) {
 }
 
 export function performanceLabel(balance: number): { text: string; positive: boolean } {
-  if (balance >= 0) {
-    return { text: "Dobra robota ✓", positive: true };
+  const result = performanceResult(balance);
+  return { text: result.subtitle, positive: result.positive };
+}
+
+export function performanceResult(balance: number): {
+  title: string;
+  subtitle: string;
+  positive: boolean;
+} {
+  if (balance > 0) {
+    return {
+      title: "Nadwyżka",
+      subtitle: "przychody przewyższyły wydatki",
+      positive: true,
+    };
   }
-  return { text: "Uwaga: wydatki przekroczyły przychody", positive: false };
+  if (balance < 0) {
+    return {
+      title: "Deficyt",
+      subtitle: "wydatki przekroczyły przychody",
+      positive: false,
+    };
+  }
+  return {
+    title: "Równowaga",
+    subtitle: "przychody równe wydatkom",
+    positive: true,
+  };
 }
 
 export function completionStatusClass(
