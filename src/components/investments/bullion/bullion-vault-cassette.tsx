@@ -2,13 +2,13 @@
 
 import { Fragment } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import type { VaultCoinItem } from "@/lib/queries/bullion-vault";
 import {
   VAULT_SERIES_COLUMNS,
   VAULT_SERIES_LABELS,
   VAULT_WEIGHT_ROWS,
 } from "@/lib/gold/coin-stock-images";
+import { CoinVaultImage } from "@/components/investments/bullion/coin-vault-image";
 import { formatPln } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Vault } from "lucide-react";
@@ -117,7 +117,6 @@ function VaultCell({ coin, large }: { coin: VaultCoinItem | null; large?: boolea
   }
 
   const pnl = coin.pnl_pln;
-  const img = coin.image_url;
 
   return (
     <Link
@@ -127,20 +126,11 @@ function VaultCell({ coin, large }: { coin: VaultCoinItem | null; large?: boolea
         large ? "aspect-[5/4]" : "aspect-square"
       )}
     >
-      {img ? (
-        <Image
-          src={img}
-          alt={coin.name}
-          fill
-          className="object-cover transition duration-500 group-hover:scale-110"
-          sizes={large ? "400px" : "140px"}
-          unoptimized
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center bg-gradient-to-br from-amber-700 to-amber-900 text-2xl font-bold text-amber-200/60">
-          Au
-        </div>
-      )}
+      <CoinVaultImage
+        series={coin.coin_series}
+        imageUrl={coin.image_url}
+        alt={coin.name}
+      />
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-90" />
       <div className="absolute inset-x-0 bottom-0 p-2.5">
         <p className="line-clamp-2 text-[10px] font-semibold leading-tight text-white">

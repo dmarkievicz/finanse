@@ -49,3 +49,18 @@ export const VAULT_SERIES_COLUMNS: VaultCoinSeries[] = [
 export function stockImageForSeries(series: VaultCoinSeries): string {
   return COIN_STOCK_IMAGES[series] ?? COIN_STOCK_IMAGES.kangaroo;
 }
+
+export function inferCoinSeriesFromName(name: string): VaultCoinSeries | null {
+  const n = name.toLowerCase();
+  if (n.includes("kangur")) return "kangaroo";
+  if (n.includes("britannia")) return "britannia";
+  if (n.includes("filharmonik")) return "philharmonic";
+  if (n.includes("klonowy") || n.includes("maple")) return "maple";
+  if (n.includes("krugerrand")) return "krugerrand";
+  if (n.includes("orzeł") || n.includes("orzel") || n.includes("eagle")) return "eagle";
+  return null;
+}
+
+export function localCoinImagePath(series: VaultCoinSeries): string {
+  return `/coins/${series}.svg`;
+}
