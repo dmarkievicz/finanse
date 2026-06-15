@@ -16,7 +16,7 @@ interface DashboardPeriodSelectorProps {
 }
 
 const selectClass =
-  "h-9 appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-8 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200";
+  "h-9 appearance-none rounded-lg border border-border bg-card pl-3 pr-8 text-sm font-medium text-foreground shadow-sm transition hover:border-slate-300 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10";
 
 export function DashboardPeriodSelector({
   selection,

@@ -8,27 +8,23 @@ interface MonthlyPerformanceChartProps {
   data: MonthlyBudgetPoint[];
   highlightMonth?: number | null;
   year: number;
+  embedded?: boolean;
 }
 
 export function MonthlyPerformanceChart({
   data,
   highlightMonth,
   year,
+  embedded = false,
 }: MonthlyPerformanceChartProps) {
   const withData = data.filter((d) => d.hasData);
   const maxAbs = Math.max(...data.map((d) => Math.abs(d.performance)), 1);
 
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold text-slate-900">Wynik miesięczny</h3>
-        <p className="mt-0.5 text-xs text-muted">Przychody − wydatki · {year}</p>
-      </div>
-
-      {withData.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted">Brak danych w tym roku</p>
-      ) : (
-        <div className="space-y-1.5">
+  const body =
+    withData.length === 0 ? (
+      <p className="py-8 text-center text-sm text-muted">Brak danych w tym roku</p>
+    ) : (
+      <div className="space-y-1.5">
           {data.map((d) => {
             if (!d.hasData && d.performance === 0) {
               return (
@@ -79,8 +75,20 @@ export function MonthlyPerformanceChart({
               </div>
             );
           })}
-        </div>
-      )}
+      </div>
+    );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-slate-900">Wynik miesięczny</h3>
+        <p className="mt-0.5 text-xs text-muted">Przychody − wydatki · {year}</p>
+      </div>
+      {body}
     </div>
   );
 }

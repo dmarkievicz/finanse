@@ -9,6 +9,7 @@ interface TrackedVsBudgetChartProps {
   data: MonthlyBudgetPoint[];
   highlightMonth?: number | null;
   year: number;
+  embedded?: boolean;
 }
 
 const COLORS = {
@@ -18,7 +19,12 @@ const COLORS = {
   expenseBudget: "#fecdd3",
 };
 
-export function TrackedVsBudgetChart({ data, highlightMonth, year }: TrackedVsBudgetChartProps) {
+export function TrackedVsBudgetChart({
+  data,
+  highlightMonth,
+  year,
+  embedded = false,
+}: TrackedVsBudgetChartProps) {
   const [hover, setHover] = useState<number | null>(null);
   const withData = data.filter((d) => d.hasData || d.incomeBudget > 0 || d.expenseBudget > 0);
   const max = Math.max(
@@ -36,17 +42,11 @@ export function TrackedVsBudgetChart({ data, highlightMonth, year }: TrackedVsBu
 
   const hovered = hover != null ? data[hover] : null;
 
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold text-slate-900">Wykonanie vs budżet</h3>
-        <p className="mt-0.5 text-xs text-muted">Miesiące {year}</p>
-      </div>
-
-      {withData.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted">Brak danych w tym roku</p>
-      ) : (
-        <>
+  const body =
+    withData.length === 0 ? (
+      <p className="py-8 text-center text-sm text-muted">Brak danych w tym roku</p>
+    ) : (
+      <>
           <div className="mb-2 min-h-[2rem]">
             {hovered ? (
               <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md bg-slate-50 px-3 py-2 text-[11px]">
@@ -137,8 +137,20 @@ export function TrackedVsBudgetChart({ data, highlightMonth, year }: TrackedVsBu
             <Legend color={COLORS.expenseTracked} label="Wydatki (wyk.)" />
             <Legend color={COLORS.expenseBudget} label="Wydatki (budżet)" />
           </div>
-        </>
-      )}
+      </>
+    );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-slate-900">Wykonanie vs budżet</h3>
+        <p className="mt-0.5 text-xs text-muted">Miesiące {year}</p>
+      </div>
+      {body}
     </div>
   );
 }

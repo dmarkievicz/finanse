@@ -6,6 +6,7 @@ import { BudgetBreakdownTable } from "@/components/dashboard/budget-breakdown-ta
 import { CategoryDonutChart } from "@/components/dashboard/category-donut-chart";
 import { TrackedVsBudgetChart } from "@/components/dashboard/tracked-vs-budget-chart";
 import { MonthlyPerformanceChart } from "@/components/dashboard/monthly-performance-chart";
+import { DashboardChartPanel } from "@/components/dashboard/dashboard-chart-panel";
 import { SummaryPanel } from "@/components/dashboard/summary-panel";
 import { SectionCard, SectionCardHeader } from "@/components/layout";
 
@@ -64,16 +65,22 @@ export function BudgetDashboardContent({ data }: BudgetDashboardContentProps) {
 
       {data.showMonthlyCharts && data.selection.resolvedYear != null && (
         <div className="grid gap-4 lg:grid-cols-2">
-          <TrackedVsBudgetChart
-            data={data.monthlySeries}
-            highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
-            year={data.selection.resolvedYear}
-          />
-          <MonthlyPerformanceChart
-            data={data.monthlySeries}
-            highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
-            year={data.selection.resolvedYear}
-          />
+          <DashboardChartPanel title={`Wykonanie vs budżet · ${data.selection.resolvedYear}`}>
+            <TrackedVsBudgetChart
+              embedded
+              data={data.monthlySeries}
+              highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
+              year={data.selection.resolvedYear}
+            />
+          </DashboardChartPanel>
+          <DashboardChartPanel title={`Wynik miesięczny · ${data.selection.resolvedYear}`}>
+            <MonthlyPerformanceChart
+              embedded
+              data={data.monthlySeries}
+              highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
+              year={data.selection.resolvedYear}
+            />
+          </DashboardChartPanel>
         </div>
       )}
     </div>
