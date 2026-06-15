@@ -26,8 +26,17 @@ const INVESTMENT_ACCOUNTS = new Set([
   "Inwestycje PLN",
 ]);
 
-/** Konto księgowe transferów — wartość złota w module Inwestycje (instrument GOLD). */
-const GOLD_LEDGER_ACCOUNTS = new Set(["ZŁOTO"]);
+/** Pseudo-konta z Excela — wartość w module Inwestycje, nie operacyjne. */
+const ASSET_LEDGER_ACCOUNTS = new Set(["ZŁOTO", "LEGO"]);
+
+function isAssetLedgerName(name) {
+  if (!name) return false;
+  const t = name.trim();
+  if (ASSET_LEDGER_ACCOUNTS.has(t)) return true;
+  if (/^lego$/i.test(t)) return true;
+  if (/\bzłoto\b|\bzlot\b/i.test(t)) return true;
+  return false;
+}
 
 const TYPE_MAP = {
   expenses: "expense",
@@ -174,13 +183,13 @@ function normalizeRow(raw, rowNumber) {
 
 function inferAccountType(name) {
   if (INVESTMENT_ACCOUNTS.has(name)) return "investment";
-  if (GOLD_LEDGER_ACCOUNTS.has(name)) return "other";
+  if (isAssetLedgerName(name)) return "other";
   if (/^gotówka/i.test(name) || /^portfel/i.test(name)) return "cash";
   if (/pożyczone|hipoteczny/i.test(name)) return "loan";
   if (/karta|visa|mastercard|amex|credit\s*card/i.test(name)) return "credit_card";
   if (/xtb|inwestycje|lokaty|obligacje|pzu|ikze|krypto|robo-doradca/i.test(name)) return "investment";
   if (/\bzłoto\b|\bzlot\b/i.test(name)) return "other";
-  if (/bank|mbank|ing|alior|millennium|nest|revolut|n26|bnp|agricole|velo|bph|bos|lego|multibank/i.test(name)) {
+  if (/bank|mbank|ing|alior|millennium|nest|revolut|n26|bnp|agricole|velo|bph|bos|multibank/i.test(name)) {
     return "bank";
   }
   return "other";

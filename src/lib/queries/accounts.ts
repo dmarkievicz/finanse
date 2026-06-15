@@ -9,12 +9,12 @@ import {
   rpcAccountBalances,
   rpcAllAccountBalances,
   rpcAccountsNeedsReviewCount,
-  rpcNetWorth,
   type BalanceMode,
 } from "@/lib/supabase/rpc";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
+import { fetchTotalNetWorth } from "@/lib/queries/net-worth";
 import { sortByNamePl } from "@/lib/locale-sort";
-import { isGoldLedgerAccount } from "@/lib/accounts/classification";
+import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
 import { fetchAccountPhotoUrls } from "@/lib/queries/account-photos";
 
@@ -64,10 +64,10 @@ export async function fetchAccounts(
 
   const [balances, netWorth] = await Promise.all([
     rpcAccountBalances(supabase, asOfDate, mode),
-    rpcNetWorth(supabase, asOfDate, mode),
+    fetchTotalNetWorth(supabase, asOfDate, mode),
   ]);
 
-  const filtered = balances.filter((a) => !isGoldLedgerAccount(a.account_name));
+  const filtered = balances.filter((a) => !isAssetLedgerAccount(a.account_name));
   const accountIds = filtered.map((a) => a.account_id);
   const photoFlags = await fetchAccountCardPhotoFlags(supabase, accountIds);
   const photoUrls = await fetchAccountPhotoUrls(

@@ -9,9 +9,10 @@ import {
   type RecentTransactionRow,
 } from "@/lib/queries/dashboard";
 import { fetchInvestments } from "@/lib/queries/investments";
+import { fetchInstrumentsMarketValue } from "@/lib/queries/net-worth";
 import { fetchInstrumentsPortfolio } from "@/lib/queries/instruments";
 import { computeCurrencyExposure } from "@/lib/dashboard/currency-exposure";
-import { isGoldLedgerAccount } from "@/lib/accounts/classification";
+import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import type { AccountBalance, AccountType, CategoryBreakdown } from "@/types/database";
 
 interface BundleCashflow {
@@ -183,7 +184,16 @@ export async function rpcDashboardBundle(
     throw error;
   }
 
-  return parseBundle((data ?? {}) as Record<string, unknown>);
+  const bundle = parseBundle((data ?? {}) as Record<string, unknown>);
+
+  const { error: instFnErr } = await supabase.rpc("get_instruments_market_value_pln" as never);
+  if (instFnErr) {
+    const instTotal = await fetchInstrumentsMarketValue(supabase);
+    bundle.net_worth += instTotal;
+    bundle.prev_net_worth += instTotal;
+  }
+
+  return bundle;
 }
 
 export function bundleToDashboardCore(
@@ -239,7 +249,7 @@ export function bundleToDashboardCore(
   );
 
   const accounts: DashboardAccountRow[] = bundle.accounts
-    .filter((a) => !isGoldLedgerAccount(a.account_name))
+    .filter((a) => !isAssetLedgerAccount(a.account_name))
     .map((a) => ({
       account_id: a.account_id,
       account_name: a.account_name,

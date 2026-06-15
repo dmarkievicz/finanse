@@ -55,7 +55,7 @@ export default async function InvestmentsPage() {
     <PageContainer>
       <PageHeader
         title="Inwestycje"
-        description="Portfel — ETF, obligacje, złoto (instrument GOLD) i inne pozycje. Złoto nie jest kontem operacyjnym."
+        description="Portfel — ETF, obligacje, złoto (Bulion) i kolekcje LEGO (inwentarz). Złoto i LEGO nie są kontami bankowymi."
         action={
           <PageToolbar>
             <Link
@@ -63,6 +63,12 @@ export default async function InvestmentsPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-700 to-amber-600 px-3 py-2 text-sm font-medium text-white shadow-md hover:from-amber-600 hover:to-amber-500"
             >
               Bulion Vault
+            </Link>
+            <Link
+              href="/investments/collectibles"
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-700 to-red-600 px-3 py-2 text-sm font-medium text-white shadow-md hover:from-red-600 hover:to-red-500"
+            >
+              Kolekcje LEGO
             </Link>
             <ButtonLink href="/investments/new" variant="primary">
               <Plus className="h-4 w-4" />

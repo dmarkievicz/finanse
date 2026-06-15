@@ -4,6 +4,7 @@ import { sortByNamePl } from "@/lib/locale-sort";
 export type InstrumentType =
   | "ETF"
   | "GOLD"
+  | "COLLECTIBLE"
   | "BOND"
   | "DEPOSIT"
   | "CASH"
@@ -17,6 +18,7 @@ export const INSTRUMENT_TYPE_ORDER: InstrumentType[] = [
   "BOND",
   "DEPOSIT",
   "GOLD",
+  "COLLECTIBLE",
   "CRYPTO",
   "CASH",
   "REAL_ESTATE",
@@ -27,6 +29,7 @@ export const INSTRUMENT_TYPE_ORDER: InstrumentType[] = [
 export const INSTRUMENT_TYPE_LABELS: Record<InstrumentType, string> = {
   ETF: "ETF / akcje",
   GOLD: "Złoto",
+  COLLECTIBLE: "Kolekcje (LEGO itd.)",
   BOND: "Obligacje",
   DEPOSIT: "Lokata",
   CASH: "Gotówka inwest.",

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { DashboardAccountRow } from "@/lib/queries/dashboard";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
-import { isGoldLedgerAccount, isLiabilityAccountType } from "@/lib/accounts/classification";
+import { isAssetLedgerAccount, isLiabilityAccountType } from "@/lib/accounts/classification";
 import { AccountIcon } from "@/components/dashboard/account-icon";
 import { formatPln } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -28,7 +28,7 @@ export function DashboardAccountsPanel({ accounts }: DashboardAccountsPanelProps
   const [filter, setFilter] = useState<AccountFilter>("active");
 
   const filtered = useMemo(() => {
-    let list = accounts.filter((a) => !isGoldLedgerAccount(a.account_name));
+    let list = accounts.filter((a) => !isAssetLedgerAccount(a.account_name));
     switch (filter) {
       case "active":
         list = list.filter(

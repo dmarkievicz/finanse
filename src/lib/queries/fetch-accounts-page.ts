@@ -1,9 +1,9 @@
 import type { AccountManageRow } from "@/types/database";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { fetchAccountsManage } from "@/lib/queries/accounts";
-import { rpcNetWorth } from "@/lib/supabase/rpc";
+import { fetchTotalNetWorth } from "@/lib/queries/net-worth";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
-import { isGoldLedgerAccount } from "@/lib/accounts/classification";
+import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
 import { fetchAccountPhotoUrls } from "@/lib/queries/account-photos";
 import { sortByNamePl } from "@/lib/locale-sort";
@@ -28,10 +28,10 @@ export async function fetchAccountsPageData(
 
   const [manage, netWorth] = await Promise.all([
     fetchAccountsManage(supabase, asOfDate),
-    rpcNetWorth(supabase, asOfDate, mode),
+    fetchTotalNetWorth(supabase, asOfDate, mode),
   ]);
 
-  const filtered = manage.accounts.filter((a) => !isGoldLedgerAccount(a.account_name));
+  const filtered = manage.accounts.filter((a) => !isAssetLedgerAccount(a.account_name));
   const accountIds = filtered.map((a) => a.account_id);
   const photoFlags = await fetchAccountCardPhotoFlags(supabase, accountIds);
   const photoUrls = await fetchAccountPhotoUrls(

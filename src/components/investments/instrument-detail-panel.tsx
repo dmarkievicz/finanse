@@ -6,6 +6,7 @@ import { Loader2, Trash2 } from "lucide-react";
 import type { InstrumentDetail } from "@/lib/queries/instruments";
 import { INSTRUMENT_TYPE_LABELS } from "@/lib/queries/instruments";
 import { BullionDetailSection } from "@/components/investments/bullion-detail-section";
+import { CollectibleDetailSection } from "@/components/investments/collectible-detail-section";
 import { BullionSpotTicker } from "@/components/investments/bullion/bullion-spot-ticker";
 import Link from "next/link";
 import { Vault } from "lucide-react";
@@ -156,6 +157,10 @@ export function InstrumentDetailPanel({ instrument }: InstrumentDetailPanelProps
           </div>
           <BullionDetailSection instrument={instrument} />
         </div>
+      )}
+
+      {instrument.instrument_type === "COLLECTIBLE" && (
+        <CollectibleDetailSection instrument={instrument} />
       )}
 
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted">

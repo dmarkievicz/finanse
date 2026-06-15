@@ -3,7 +3,7 @@ import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { rpcAccountBalances } from "@/lib/supabase/rpc";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { sortByNamePl } from "@/lib/locale-sort";
-import { isGoldLedgerAccount } from "@/lib/accounts/classification";
+import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 
 export interface InvestmentPosition {
   account_id: string;
@@ -30,7 +30,7 @@ export interface InvestmentsPageData {
 }
 
 const INVESTMENT_NAME_PATTERNS =
-  /lokat|obligac|xtb|inwestycj|pzu|ikze|krypto|lego|robo-doradca|etf|bos/i;
+  /lokat|obligac|xtb|inwestycj|pzu|ikze|krypto|robo-doradca|etf|bos/i;
 
 export const INVESTMENT_CATEGORY_ORDER = [
   "ETF / akcje",
@@ -58,7 +58,7 @@ function inferCategory(name: string): { name: string; color: string } {
 }
 
 function isInvestmentAccount(acc: AccountBalance): boolean {
-  if (isGoldLedgerAccount(acc.account_name)) return false;
+  if (isAssetLedgerAccount(acc.account_name)) return false;
   if (acc.account_type === "investment" || acc.account_type === "broker" || acc.account_type === "deposit") {
     return true;
   }

@@ -1,7 +1,7 @@
 import type { AccountsPageAccount } from "@/lib/queries/fetch-accounts-page";
 import type { AccountType } from "@/types/database";
 import { sortByNamePl } from "@/lib/locale-sort";
-import { isGoldLedgerAccount } from "@/lib/accounts/classification";
+import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 
 export type AccountGroupId =
   | "bank"
@@ -92,7 +92,7 @@ function assignGroup(account: AccountsPageAccount): AccountGroupId {
 }
 
 export function buildAccountGroups(accounts: AccountsPageAccount[]): AccountGroupSection[] {
-  const visible = accounts.filter((a) => !isGoldLedgerAccount(a.account_name));
+  const visible = accounts.filter((a) => !isAssetLedgerAccount(a.account_name));
   const buckets = new Map<AccountGroupId, AccountsPageAccount[]>();
   for (const id of GROUP_ORDER) buckets.set(id, []);
 
@@ -115,7 +115,7 @@ export function buildAccountGroups(accounts: AccountsPageAccount[]): AccountGrou
 }
 
 export function computeAccountsMetrics(accounts: AccountsPageAccount[]) {
-  const visible = accounts.filter((a) => !isGoldLedgerAccount(a.account_name));
+  const visible = accounts.filter((a) => !isAssetLedgerAccount(a.account_name));
   let assets = 0;
   let liabilities = 0;
   let cash = 0;

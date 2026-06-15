@@ -15,7 +15,7 @@ import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { computeCurrencyExposure, type CurrencyExposureResult } from "@/lib/dashboard/currency-exposure";
 import type { DashboardPeriod } from "@/lib/dashboard/period";
 import { INSTRUMENT_TYPE_LABELS, type InstrumentType } from "@/lib/queries/instruments";
-import { isGoldLedgerAccount } from "@/lib/accounts/classification";
+import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 
 export interface CashflowMonth {
   label: string;
@@ -416,7 +416,7 @@ export async function fetchDashboardData(
   );
 
   const accounts: DashboardAccountRow[] = (allAccounts as AccountManageRow[])
-    .filter((a) => !isGoldLedgerAccount(a.account_name))
+    .filter((a) => !isAssetLedgerAccount(a.account_name))
     .map((a) => {
     const balance = Number(a.balance_pln);
     const prev = prevBalanceByAccount.get(a.account_id);

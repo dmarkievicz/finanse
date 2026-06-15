@@ -1,11 +1,11 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import {
   rpcAccountBalances,
-  rpcNetWorth,
   rpcPeriodCashflow,
   type BalanceMode,
 } from "@/lib/supabase/rpc";
 import { fetchInstrumentsPortfolio } from "@/lib/queries/instruments";
+import { fetchTotalNetWorth } from "@/lib/queries/net-worth";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import type { WealthSnapshotData } from "@/lib/snapshots/types";
 
@@ -30,7 +30,7 @@ export async function captureWealthSnapshot(
   const { from, to } = monthBounds(asOfDate);
 
   const [netWorth, balances, cashflow, instruments] = await Promise.all([
-    rpcNetWorth(supabase, asOfDate, mode),
+    fetchTotalNetWorth(supabase, asOfDate, mode),
     rpcAccountBalances(supabase, asOfDate, mode),
     rpcPeriodCashflow(supabase, from, to, mode).catch(() => ({
       income_pln: 0,
