@@ -71,12 +71,13 @@ AS $$
     )
   ), 0)::numeric(18, 2)
   FROM instruments i
+  JOIN investment_portfolios p ON p.id = p_portfolio_id
   WHERE i.user_id = auth.uid()
     AND i.deleted_at IS NULL
     AND i.is_active = true
     AND i.instrument_type = 'GOLD'
-    AND (i.metadata->>'portfolio_id')::uuid = p_portfolio_id
-    AND COALESCE(i.metadata->>'vault_item', 'false') = 'true';
+    AND COALESCE(i.metadata->>'vault_item', 'false') = 'true'
+    AND (i.metadata->>'portfolio_id') IN (p.id::text, p.ledger_account_id::text);
 $$;
 
 -- Wartość portfela: override ręczny > suma Vault > NULL (nie wliczaj do NW).

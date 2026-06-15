@@ -81,7 +81,12 @@ export default async function InvestmentsPage() {
                     {formatPln(p.pnl_pln)}
                   </p>
                   {p.has_mismatch && (
-                    <p className="mt-2 text-[12px] text-amber-700">⚠ Rozjazd z Vault</p>
+                    <p className="mt-1 text-[12px] text-amber-700">⚠ Rozjazd z Vault</p>
+                  )}
+                  {p.market_value_pln === 0 && p.transfer_net_pln > 0 && (
+                    <p className="mt-1 text-[12px] text-amber-700">
+                      Ustaw wartość realną w szczegółach portfela
+                    </p>
                   )}
                 </div>
               </div>
