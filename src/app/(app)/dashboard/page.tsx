@@ -18,9 +18,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <PageContainer>
       <DashboardHeader selection={data.selection} yearOptions={data.yearOptions} />
-      <div className="mt-5">
-        <BudgetDashboardContent data={data} />
-      </div>
+      <BudgetDashboardContent data={data} />
     </PageContainer>
   );
 }

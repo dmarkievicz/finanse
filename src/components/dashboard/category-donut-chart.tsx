@@ -9,8 +9,8 @@ interface CategoryDonutChartProps {
 }
 
 export function CategoryDonutChart({ title, slices, total, accent }: CategoryDonutChartProps) {
-  const size = 108;
-  const stroke = 18;
+  const size = 120;
+  const stroke = 22;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
@@ -18,14 +18,14 @@ export function CategoryDonutChart({ title, slices, total, accent }: CategoryDon
   const accentColor = accent === "income" ? "#059669" : "#e11d48";
 
   return (
-    <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
+    <div>
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         <span className="text-xs tabular-nums text-muted">Razem {formatPln(total)}</span>
       </div>
 
       {slices.length === 0 || total === 0 ? (
-        <p className="py-6 text-center text-sm text-muted">Brak danych w okresie</p>
+        <p className="py-8 text-center text-sm text-muted">Brak danych w okresie</p>
       ) : (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative mx-auto shrink-0 sm:mx-0">
@@ -67,12 +67,9 @@ export function CategoryDonutChart({ title, slices, total, accent }: CategoryDon
               </span>
             </div>
           </div>
-          <ul className="min-w-0 flex-1 space-y-2">
+          <ul className="min-w-0 flex-1 space-y-1.5">
             {slices.map((slice) => (
-              <li
-                key={slice.name}
-                className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5 text-xs"
-              >
+              <li key={slice.name} className="flex items-center justify-between gap-2 text-[12px]">
                 <span className="flex min-w-0 items-center gap-2">
                   <span
                     className="h-2 w-2 shrink-0 rounded-full"
@@ -80,9 +77,9 @@ export function CategoryDonutChart({ title, slices, total, accent }: CategoryDon
                   />
                   <span className="truncate text-slate-700">{slice.name}</span>
                 </span>
-                <span className="text-right tabular-nums text-slate-600">
-                  {formatPln(slice.value)}
-                  <span className="ml-1 text-muted">({slice.pct}%)</span>
+                <span className="shrink-0 tabular-nums text-slate-600">
+                  {formatPln(slice.value)}{" "}
+                  <span className="text-muted">({slice.pct}%)</span>
                 </span>
               </li>
             ))}

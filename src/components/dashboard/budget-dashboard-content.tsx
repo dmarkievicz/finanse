@@ -21,7 +21,7 @@ export function BudgetDashboardContent({ data }: BudgetDashboardContentProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {data.budgetStatusNotice && (
         <BudgetStatusNoticeCard notice={data.budgetStatusNotice} />
       )}
@@ -35,7 +35,7 @@ export function BudgetDashboardContent({ data }: BudgetDashboardContentProps) {
         performancePositive={data.performancePositive}
       />
 
-      <div className="grid gap-5 xl:grid-cols-12 xl:items-start">
+      <div className="grid gap-4 xl:grid-cols-12 xl:items-start">
         <div className="xl:col-span-7">
           <BudgetBreakdownTable
             title={selection.breakdownTitle}
@@ -56,12 +56,14 @@ export function BudgetDashboardContent({ data }: BudgetDashboardContentProps) {
               total={data.incomeTotals.tracked}
               accent="income"
             />
-            <CategoryDonutChart
-              title="Wydatki wg kategorii"
-              slices={data.expenseDonut}
-              total={data.expenseTotals.tracked}
-              accent="expense"
-            />
+            <div className="border-t border-slate-100 pt-4">
+              <CategoryDonutChart
+                title="Wydatki wg kategorii"
+                slices={data.expenseDonut}
+                total={data.expenseTotals.tracked}
+                accent="expense"
+              />
+            </div>
           </SummaryPanel>
 
           {data.showMonthlyCharts && data.selection.resolvedYear != null && (
@@ -86,7 +88,7 @@ export function BudgetDashboardContent({ data }: BudgetDashboardContentProps) {
 
 function EmptyPeriodState({ selection }: { selection: BudgetDashboardPageData["selection"] }) {
   return (
-    <SectionCard className="mt-2">
+    <SectionCard>
       <SectionCardHeader
         title="Brak danych w wybranym okresie"
         subtitle={`${selection.yearLabel} · ${selection.periodLabel}`}
@@ -98,13 +100,13 @@ function EmptyPeriodState({ selection }: { selection: BudgetDashboardPageData["s
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
           href="/transactions/new"
-          className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
         >
           Dodaj transakcję
         </Link>
         <Link
           href="/budgets"
-          className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-slate-50"
+          className="rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
           Ustaw budżety
         </Link>
