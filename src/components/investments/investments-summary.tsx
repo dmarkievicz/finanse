@@ -17,7 +17,7 @@ export function InvestmentsSummary({ totalPln, positionCount, asOfDate }: Invest
         </div>
         <p className="mt-2 text-4xl font-bold tracking-tight text-foreground">{formatPln(totalPln)}</p>
         <p className="mt-1 text-sm text-muted">
-          Portfele (wartość realna) · stan na {asOfDate}
+          Wszystkie klasy aktywów · stan na {asOfDate}
         </p>
       </div>
       <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">

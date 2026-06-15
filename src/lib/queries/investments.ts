@@ -37,6 +37,7 @@ export const INVESTMENT_CATEGORY_ORDER = [
   "Obligacje",
   "Lokaty",
   "Złoto",
+  "LEGO",
   "Ubezpieczenia",
   "Krypto",
   "Inne",
@@ -46,6 +47,8 @@ const CATEGORY_RULES: { pattern: RegExp; name: string; color: string }[] = [
   { pattern: /xtb|etf|ikze|robo/i, name: "ETF / akcje", color: "#1e3a5f" },
   { pattern: /obligac/i, name: "Obligacje", color: "#0d9488" },
   { pattern: /lokat/i, name: "Lokaty", color: "#3b82f6" },
+  { pattern: /\bzłoto\b|\bzlot\b/i, name: "Złoto", color: "#d97706" },
+  { pattern: /^lego$/i, name: "LEGO", color: "#be123c" },
   { pattern: /pzu/i, name: "Ubezpieczenia", color: "#8b5cf6" },
   { pattern: /krypto/i, name: "Krypto", color: "#ec4899" },
 ];

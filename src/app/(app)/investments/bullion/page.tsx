@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { PageContainer } from "@/components/layout";
 import { BullionShell } from "@/components/investments/bullion/bullion-shell";
 import { BullionHero } from "@/components/investments/bullion/bullion-hero";
 import { BullionAddCoinForm } from "@/components/investments/bullion/bullion-add-coin-form";
@@ -21,17 +22,19 @@ export default async function BullionInventoryPage() {
   const totalFineGrams = data.coins.reduce((s, c) => s + c.fine_grams, 0);
 
   return (
-    <BullionShell>
-      <BullionHero
-        portfolio={data.portfolio}
-        coinCount={data.coins.length}
-        totalFineGrams={totalFineGrams}
-        vaultCurrentTotal={data.totalVaultCurrent}
-      />
+    <PageContainer>
+      <BullionShell>
+        <BullionHero
+          portfolio={data.portfolio}
+          coinCount={data.coins.length}
+          totalFineGrams={totalFineGrams}
+          vaultCurrentTotal={data.totalVaultCurrent}
+        />
 
-      <BullionAddCoinForm />
+        <BullionAddCoinForm />
 
-      <BullionVaultCassette grid={data.grid} eagle={data.eagle} />
-    </BullionShell>
+        <BullionVaultCassette grid={data.grid} eagle={data.eagle} />
+      </BullionShell>
+    </PageContainer>
   );
 }
