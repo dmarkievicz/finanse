@@ -1,8 +1,9 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { fetchInstrumentsPortfolio } from "@/lib/queries/instruments";
+import { fetchPortfoliosMarketValue } from "@/lib/queries/investment-portfolios";
 import type { BalanceMode } from "@/lib/supabase/rpc";
 
-/** Majątek netto: konta (include_in_net_worth) + wartość instrumentów. */
+/** Majątek netto: konta + instrumenty (bez Vault) + portfele (override). */
 export async function fetchTotalNetWorth(
   supabase: ServerSupabaseClient,
   asOfDate: string,
@@ -15,13 +16,17 @@ export async function fetchTotalNetWorth(
   if (nwErr) throw nwErr;
 
   const { error: instRpcErr } = await supabase.rpc("get_instruments_market_value_pln" as never);
-  if (!instRpcErr) {
+  const { error: portRpcErr } = await supabase.rpc("get_portfolios_market_value_pln" as never);
+  if (!instRpcErr && !portRpcErr) {
     return Number(rpcNw ?? 0);
   }
 
-  const portfolio = await fetchInstrumentsPortfolio(supabase);
-  const instrumentTotal = portfolio.reduce((s, i) => s + i.market_value_pln, 0);
-  return Number(rpcNw ?? 0) + instrumentTotal;
+  const [instruments, portfoliosTotal] = await Promise.all([
+    fetchInstrumentsPortfolio(supabase),
+    fetchPortfoliosMarketValue(supabase),
+  ]);
+  const instrumentTotal = instruments.reduce((s, i) => s + i.market_value_pln, 0);
+  return Number(rpcNw ?? 0) + instrumentTotal + portfoliosTotal;
 }
 
 export async function fetchInstrumentsMarketValue(

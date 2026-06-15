@@ -1,4 +1,9 @@
 import type { AccountType } from "@/types/database";
+import {
+  inferPortfolioKindFromAccountName,
+  isInvestmentLedgerAccount,
+  type PortfolioKind,
+} from "@/lib/investments/portfolio-kinds";
 
 /** Konto księgowe złota z Excela — nie operacyjne; wartość w module Bulion (GOLD). */
 export const GOLD_LEDGER_NAME_PATTERN = /\bzłoto\b|\bzlot\b/i;
@@ -14,10 +19,12 @@ export function isCollectibleLedgerAccount(name: string): boolean {
   return COLLECTIBLE_LEDGER_NAME_PATTERN.test(name.trim());
 }
 
-/** Złoto lub LEGO — pseudo-konta z importu, ukryte z widoku Kont. */
+/** Złoto, LEGO lub ETF — pseudo-konta z importu, ukryte z widoku Kont. */
 export function isAssetLedgerAccount(name: string): boolean {
-  return isGoldLedgerAccount(name) || isCollectibleLedgerAccount(name);
+  return isInvestmentLedgerAccount(name);
 }
+
+export { inferPortfolioKindFromAccountName, type PortfolioKind };
 
 export const LIABILITY_ACCOUNT_TYPES = new Set<AccountType>(["loan", "credit_card"]);
 

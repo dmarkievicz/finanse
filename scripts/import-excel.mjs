@@ -27,13 +27,14 @@ const INVESTMENT_ACCOUNTS = new Set([
 ]);
 
 /** Pseudo-konta z Excela — wartość w module Inwestycje, nie operacyjne. */
-const ASSET_LEDGER_ACCOUNTS = new Set(["ZŁOTO", "LEGO"]);
+const ASSET_LEDGER_ACCOUNTS = new Set(["ZŁOTO", "LEGO", "ETF"]);
 
 function isAssetLedgerName(name) {
   if (!name) return false;
   const t = name.trim();
   if (ASSET_LEDGER_ACCOUNTS.has(t)) return true;
   if (/^lego$/i.test(t)) return true;
+  if (/^etf$/i.test(t)) return true;
   if (/\bzłoto\b|\bzlot\b/i.test(t)) return true;
   return false;
 }

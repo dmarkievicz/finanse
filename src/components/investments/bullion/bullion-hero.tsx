@@ -1,69 +1,94 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowLeft, Gem } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Gem } from "lucide-react";
 import { formatPln } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import type { InvestmentPortfolioRow } from "@/lib/queries/investment-portfolios";
+import { PortfolioValueEditor } from "@/components/investments/portfolio-value-editor";
 
 interface BullionHeroProps {
-  itemCount: number;
-  totalInvested: number;
-  totalSpotValue: number | null;
+  portfolio: InvestmentPortfolioRow | null;
+  coinCount: number;
   totalFineGrams: number;
-  totalSpotPnl: number | null;
+  vaultCurrentTotal: number;
 }
 
 export function BullionHero({
-  itemCount,
-  totalInvested,
-  totalSpotValue,
+  portfolio,
+  coinCount,
   totalFineGrams,
-  totalSpotPnl,
+  vaultCurrentTotal,
 }: BullionHeroProps) {
+  const invested = portfolio?.transfer_net_pln ?? 0;
+  const marketValue = portfolio?.market_value_pln ?? vaultCurrentTotal;
+  const pnl = marketValue - invested;
+
   return (
-    <header className="mb-8">
+    <header className="space-y-4">
       <Link
         href="/investments"
-        className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-amber-200/60 transition hover:text-amber-100"
+        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Inwestycje
       </Link>
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-widest text-amber-300">
-            <Gem className="h-3 w-3" />
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-border bg-slate-50 px-3 py-1 text-[11px] font-medium uppercase tracking-widest text-slate-600">
+            <Gem className="h-3 w-3 text-amber-600" />
             Bulion Vault
           </div>
-          <h1 className="bg-gradient-to-r from-amber-100 via-amber-300 to-amber-500 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Twój sejf złota
           </h1>
-          <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-stone-400">
-            Monety i sztabki to <strong className="font-medium text-stone-300">inwestycje</strong>, nie
-            konta. Płacisz z banku (mBank, ING…) — środki schodzą z konta, a bulion ląduje w
-            inwentarzu z wyceną na żywo.
+          <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-muted">
+            Kapitał włożony liczy się z transferów Excela (np. mBank → ZŁOTO). Monety w
+            kasetkach to szczegóły — wartość realną możesz nadpisać ręcznie.
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <HeroStat label="Pozycje" value={String(itemCount)} />
-          <HeroStat label="Czyste Au" value={`${totalFineGrams.toFixed(1)} g`} />
-          <HeroStat label="Zainwestowano" value={formatPln(totalInvested)} />
-          <HeroStat
-            label="Wartość spot"
-            value={totalSpotValue != null ? formatPln(totalSpotValue) : "—"}
-            sub={
-              totalSpotPnl != null
-                ? `${totalSpotPnl >= 0 ? "+" : ""}${formatPln(totalSpotPnl)}`
-                : undefined
-            }
-            subPositive={totalSpotPnl != null ? totalSpotPnl >= 0 : undefined}
+          <Stat label="Monety" value={String(coinCount)} />
+          <Stat label="Czyste Au" value={`${totalFineGrams.toFixed(1)} g`} />
+          <Stat label="Z transferów" value={formatPln(invested)} />
+          <Stat
+            label="Wartość realna"
+            value={formatPln(marketValue)}
+            sub={`${pnl >= 0 ? "+" : ""}${formatPln(pnl)}`}
+            subPositive={pnl >= 0}
           />
         </div>
       </div>
+
+      {portfolio?.has_mismatch && (
+        <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-medium">Rozjazd transferów i Vault</p>
+            <p className="mt-0.5 text-amber-800">
+              Transfery na ZŁOTO: {formatPln(portfolio.transfer_net_pln)} · Suma zakupów
+              monet: {formatPln(portfolio.vault_purchase_value_pln)} · Różnica:{" "}
+              {formatPln(portfolio.mismatch_pln)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {portfolio && (
+        <PortfolioValueEditor
+          portfolioId={portfolio.id}
+          label="Wartość realna portfela złota"
+          value={portfolio.manual_market_value_pln}
+          hint={`Suma cen skupu w Vault: ${formatPln(vaultCurrentTotal)}`}
+        />
+      )}
     </header>
   );
 }
 
-function HeroStat({
+function Stat({
   label,
   value,
   sub,
@@ -75,14 +100,15 @@ function HeroStat({
   subPositive?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 backdrop-blur-sm">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-stone-500">{label}</p>
-      <p className="mt-0.5 text-lg font-semibold tabular-nums text-stone-100">{value}</p>
+    <div className="rounded-xl border border-border/80 bg-card px-3 py-2.5 shadow-sm">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-0.5 text-lg font-semibold tabular-nums text-foreground">{value}</p>
       {sub && (
         <p
-          className={`text-[11px] font-medium tabular-nums ${
-            subPositive ? "text-emerald-400" : "text-rose-400"
-          }`}
+          className={cn(
+            "text-[11px] font-medium tabular-nums",
+            subPositive ? "text-emerald-600" : "text-red-600"
+          )}
         >
           {sub}
         </p>

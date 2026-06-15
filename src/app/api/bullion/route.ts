@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createBullionPurchase } from "@/lib/gold/create-bullion-purchase";
+import { addVaultCoin } from "@/lib/gold/add-vault-coin";
+import {
+  fetchPortfolioByKind,
+  portfolioKeyForVault,
+} from "@/lib/queries/investment-portfolios";
+import type { VaultCoinSeries } from "@/lib/gold/coin-stock-images";
 
 export async function POST(request: Request) {
   try {
@@ -10,21 +15,23 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Nie zalogowano" }, { status: 401 });
 
+    const portfolio = await fetchPortfolioByKind(supabase, "gold");
+    if (!portfolio) {
+      return NextResponse.json(
+        { error: "Brak portfela złota (konto ZŁOTO). Uruchom import lub seed." },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const name = String(body.name ?? "").trim();
-    const paymentAccountId = String(body.payment_account_id ?? "").trim();
-    const purchaseDate = String(body.purchase_date ?? new Date().toISOString().slice(0, 10));
     const purchasePrice = Number(body.purchase_price_pln);
     const weightGrams = Number(body.weight_grams);
+    const currentValue =
+      body.current_value_pln != null ? Number(body.current_value_pln) : purchasePrice;
 
     if (!name) {
       return NextResponse.json({ error: "Wymagana nazwa monety" }, { status: 400 });
-    }
-    if (!paymentAccountId) {
-      return NextResponse.json(
-        { error: "Wybierz konto bankowe, z którego płacisz (np. mBank)" },
-        { status: 400 }
-      );
     }
     if (Number.isNaN(purchasePrice) || purchasePrice <= 0) {
       return NextResponse.json({ error: "Podaj cenę zakupu (PLN)" }, { status: 400 });
@@ -33,29 +40,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Podaj wagę w gramach" }, { status: 400 });
     }
 
-    const purity = body.purity != null ? Number(body.purity) : undefined;
-    const year = body.year != null ? Number(body.year) : undefined;
-
-    const result = await createBullionPurchase(supabase, user.id, {
+    const result = await addVaultCoin(supabase, user.id, {
+      portfolio_id: portfolioKeyForVault(portfolio),
       name,
-      payment_account_id: paymentAccountId,
-      purchase_date: purchaseDate,
-      purchase_price_pln: purchasePrice,
+      series: body.series as VaultCoinSeries | undefined,
+      vault_row: body.vault_row != null ? Number(body.vault_row) : undefined,
+      vault_col: body.vault_col != null ? Number(body.vault_col) : undefined,
+      vault_slot: body.vault_slot === "eagle" ? "eagle" : "grid",
       weight_grams: weightGrams,
-      purity: purity != null && !Number.isNaN(purity) ? purity : undefined,
+      purity: body.purity != null ? Number(body.purity) : undefined,
+      purchase_price_pln: purchasePrice,
+      current_value_pln: currentValue,
+      purchase_date: body.purchase_date
+        ? String(body.purchase_date)
+        : new Date().toISOString().slice(0, 10),
       mint: body.mint ? String(body.mint).trim() : undefined,
-      year: year != null && !Number.isNaN(year) ? year : undefined,
-      bullion_kind: body.bullion_kind === "bar" ? "bar" : "coin",
-      symbol: body.symbol,
-      notes: body.notes,
-      create_bank_expense: body.create_bank_expense !== false,
+      notes: body.notes ? String(body.notes) : undefined,
     });
 
-    return NextResponse.json({
-      ok: true,
-      id: result.instrumentId,
-      cash_transaction_id: result.cashTransactionId,
-    });
+    return NextResponse.json({ ok: true, id: result.instrumentId });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Błąd";
     return NextResponse.json({ error: message }, { status: 500 });
