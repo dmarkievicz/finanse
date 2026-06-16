@@ -56,21 +56,25 @@ export function BudgetDashboardContent({ data }: BudgetDashboardContentProps) {
 
         <div className="flex lg:col-span-2">
           <SummaryPanel className="w-full" title={selection.summaryTitle}>
-            <div className="flex h-full min-h-0 flex-1 flex-col justify-between gap-5">
-              <CategoryDonutChart
-                layout="stacked"
-                title="Przychody wg kategorii"
-                slices={data.incomeDonut}
-                total={data.incomeTotals.tracked}
-                accent="income"
-              />
-              <CategoryDonutChart
-                layout="stacked"
-                title="Wydatki wg kategorii"
-                slices={data.expenseDonut}
-                total={data.expenseTotals.tracked}
-                accent="expense"
-              />
+            <div className="flex h-full min-h-0 flex-1 flex-col divide-y divide-border">
+              <div className="flex min-h-0 flex-1 flex-col py-3 first:pt-0 last:pb-0">
+                <CategoryDonutChart
+                  layout="stacked"
+                  title="Przychody wg kategorii"
+                  slices={data.incomeDonut}
+                  total={data.incomeTotals.tracked}
+                  accent="income"
+                />
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col py-3 first:pt-0 last:pb-0">
+                <CategoryDonutChart
+                  layout="stacked"
+                  title="Wydatki wg kategorii"
+                  slices={data.expenseDonut}
+                  total={data.expenseTotals.tracked}
+                  accent="expense"
+                />
+              </div>
             </div>
           </SummaryPanel>
         </div>
