@@ -50,7 +50,11 @@ export function hintFromImportRaw(
   const amountPln =
     amount != null && amount !== 0
       ? (() => {
-          const pln = Math.round(Math.abs(amount) * rate * 100) / 100;
+          const abs = Math.round(Math.abs(amount) * 100) / 100;
+          const pln =
+            currency === "PLN"
+              ? abs
+              : Math.round(Math.abs(amount) * rate * 100) / 100;
           if (typeLower === "expenses" || typeLower === "expense") {
             return amount > 0 ? -pln : pln;
           }

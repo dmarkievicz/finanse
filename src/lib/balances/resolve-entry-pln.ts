@@ -75,7 +75,14 @@ export function ledgerEntryPln(entry: EntryPlnInput): number {
 
   if (acctCur === "PLN") {
     const sign = amount < 0 ? -1 : amount > 0 ? 1 : amountPln < 0 ? -1 : 1;
-    return sign * Math.max(Math.abs(amountPln), Math.abs(amount));
+    const absAmt = Math.abs(amount);
+    const absStored = Math.abs(amountPln);
+    const entryCur = normalizeCurrency(entry.currency);
+    // Import: PLN na koncie PLN, ale amount_pln = |amount|×rate (np. IKEA 531,95×4,25)
+    if (entryCur === "PLN" && rate !== 1 && absAmt > 0 && absStored > absAmt * 1.5) {
+      return sign * absAmt;
+    }
+    return sign * Math.max(absStored, absAmt);
   }
 
   if (rate === 1) {

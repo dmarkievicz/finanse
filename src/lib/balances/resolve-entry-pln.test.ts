@@ -28,7 +28,13 @@ function ledgerEntryPln(entry: {
 
   if (acctCur === "PLN") {
     const sign = amount < 0 ? -1 : amount > 0 ? 1 : amountPln < 0 ? -1 : 1;
-    return sign * Math.max(Math.abs(amountPln), Math.abs(amount));
+    const absAmt = Math.abs(amount);
+    const absStored = Math.abs(amountPln);
+    const entryCur = normalizeCurrency(entry.currency);
+    if (entryCur === "PLN" && rate !== 1 && absAmt > 0 && absStored > absAmt * 1.5) {
+      return sign * absAmt;
+    }
+    return sign * Math.max(absStored, absAmt);
   }
   if (rate === 1) {
     if (Math.abs(amountPln) > Math.abs(amount) * 1.5) return amountPln;
@@ -163,6 +169,17 @@ describe("ledgerEntryPln", () => {
       accountCurrency: "EUR",
     });
     assert.ok(Math.abs(pln - 31457.23) < 1);
+  });
+
+  it("PLN na koncie PLN — nie mnoży amount×rate w amount_pln (IKEA)", () => {
+    const pln = ledgerEntryPln({
+      amount: -531.95,
+      amount_pln: -2260.79,
+      currency: "PLN",
+      exchange_rate: 4.25,
+      accountCurrency: "PLN",
+    });
+    assert.equal(pln, -531.95);
   });
 });
 

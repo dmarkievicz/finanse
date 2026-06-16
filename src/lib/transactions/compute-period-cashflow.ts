@@ -1,5 +1,6 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import type { CategoryBreakdown } from "@/types/database";
+import { resolveSignedEntryPln } from "@/lib/balances/resolve-entry-pln";
 import { splitTransactionFlow } from "@/lib/transactions/cashflow-amounts";
 import {
   resolveDateRange,
@@ -57,15 +58,30 @@ async function loadEntriesByTxId(
     const chunk = ids.slice(i, i + chunkSize);
     const { data: entries, error } = await supabase
       .from("transaction_entries")
-      .select("transaction_id, amount_pln")
+      .select(
+        "transaction_id, amount, amount_pln, currency, exchange_rate, accounts(default_currency)"
+      )
       .in("transaction_id", chunk);
 
     if (error) throw error;
 
-    for (const e of (entries ?? []) as { transaction_id: string; amount_pln: number | null }[]) {
+    for (const e of (entries ?? []) as {
+      transaction_id: string;
+      amount: number;
+      amount_pln: number | null;
+      currency: string;
+      exchange_rate: number | null;
+      accounts: { default_currency: string | null } | null;
+    }[]) {
       const tid = e.transaction_id;
-      const amt = Number(e.amount_pln ?? 0);
-      netByTx.set(tid, (netByTx.get(tid) ?? 0) + amt);
+      const pln = resolveSignedEntryPln({
+        amount: Number(e.amount),
+        amount_pln: Number(e.amount_pln ?? 0),
+        currency: e.currency,
+        exchange_rate: Number(e.exchange_rate ?? 1),
+        accountCurrency: e.accounts?.default_currency,
+      });
+      netByTx.set(tid, (netByTx.get(tid) ?? 0) + pln);
     }
   }
 
