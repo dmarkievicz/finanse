@@ -202,7 +202,7 @@ function BreakdownRow({
 
   return (
     <tr className="transition-colors hover:bg-slate-50/70">
-      <td className="py-1.5 pl-6 pr-3 align-middle text-[13px]">
+      <td className="py-1.5 pl-10 pr-3 align-middle text-[13px]">
         <Link href={href} className="font-medium text-slate-800 hover:text-primary hover:underline">
           {row.categoryName}
         </Link>
