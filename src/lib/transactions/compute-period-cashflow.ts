@@ -253,6 +253,36 @@ export async function computeRefundAwareCategoryBreakdown(
     .sort((a, b) => b.total_pln - a.total_pln);
 }
 
+export interface DateRangeBounds {
+  from: string;
+  to: string;
+}
+
+/** Nadpisuje breakdown i total w bundle analityki kategorii (stary SQL na produkcji). */
+export async function overlayRefundAwareBreakdown(
+  supabase: ServerSupabaseClient,
+  current: DateRangeBounds,
+  previous: DateRangeBounds,
+  mode: BalanceMode = "current"
+) {
+  const [expCurr, expPrev, incCurr, incPrev, cfCurr] = await Promise.all([
+    computeRefundAwareCategoryBreakdown(supabase, current.from, current.to, mode, "expense"),
+    computeRefundAwareCategoryBreakdown(supabase, previous.from, previous.to, mode, "expense"),
+    computeRefundAwareCategoryBreakdown(supabase, current.from, current.to, mode, "income"),
+    computeRefundAwareCategoryBreakdown(supabase, previous.from, previous.to, mode, "income"),
+    computeRefundAwareCashflow(supabase, current.from, current.to, mode),
+  ]);
+
+  return {
+    expense_current: expCurr,
+    expense_previous: expPrev,
+    income_current: incCurr,
+    income_previous: incPrev,
+    expense_total: cfCurr.expense_pln,
+    income_total: cfCurr.income_pln,
+  };
+}
+
 /** Refund-aware podsumowanie z filtrami listy transakcji. */
 export async function computeFilteredCashflowSummary(
   supabase: ServerSupabaseClient,

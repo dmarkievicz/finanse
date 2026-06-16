@@ -2,8 +2,10 @@ import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import type { BalanceMode } from "@/lib/supabase/rpc";
 import {
   rpcCategoryBreakdown,
+  rpcCategoryBreakdownTyped,
   rpcCategoriesAnalyticsBundle,
 } from "@/lib/supabase/rpc";
+import { overlayRefundAwareBreakdown } from "@/lib/transactions/compute-period-cashflow";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import type { CategoriesPeriod } from "@/lib/categories/period";
 import type { CategoryType } from "@/types/database";
@@ -225,46 +227,21 @@ async function fetchBundleFallback(
   mode: BalanceMode
 ): Promise<BundlePayload> {
   const { current, previous } = period;
-  const [expCurr, expPrev] = await Promise.all([
+  const [expCurr, expPrev, incCurr, incPrev] = await Promise.all([
     rpcCategoryBreakdown(supabase, current.from, current.to, mode),
     rpcCategoryBreakdown(supabase, previous.from, previous.to, mode),
+    rpcCategoryBreakdownTyped(supabase, current.from, current.to, "income", mode),
+    rpcCategoryBreakdownTyped(supabase, previous.from, previous.to, "income", mode),
   ]);
 
-  let incCurrData: BreakdownRow[] = [];
-  let incPrevData: BreakdownRow[] = [];
-  try {
-    const [incCurr, incPrev] = await Promise.all([
-      supabase.rpc("get_category_breakdown_typed", {
-        p_from: current.from,
-        p_to: current.to,
-        p_mode: mode,
-        p_tx_type: "income",
-      } as never),
-      supabase.rpc("get_category_breakdown_typed", {
-        p_from: previous.from,
-        p_to: previous.to,
-        p_mode: mode,
-        p_tx_type: "income",
-      } as never),
-    ]);
-    if (!incCurr.error) incCurrData = (incCurr.data ?? []) as BreakdownRow[];
-    if (!incPrev.error) incPrevData = (incPrev.data ?? []) as BreakdownRow[];
-  } catch {
-    /* migracja 20 może nie być zastosowana */
-  }
-
-  const expenseTotal = expCurr
-    .filter((r) => r.category_id)
-    .reduce((s, r) => s + Number(r.total_pln), 0);
-  const incomeTotal = incCurrData
-    .filter((r) => r.category_id)
-    .reduce((s, r) => s + Number(r.total_pln), 0);
+  const expenseTotal = expCurr.reduce((s, r) => s + Number(r.total_pln), 0);
+  const incomeTotal = incCurr.reduce((s, r) => s + Number(r.total_pln), 0);
 
   return {
     expense_current: expCurr as BreakdownRow[],
     expense_previous: expPrev as BreakdownRow[],
-    income_current: incCurrData,
-    income_previous: incPrevData,
+    income_current: incCurr as BreakdownRow[],
+    income_previous: incPrev as BreakdownRow[],
     subcategory_expense: [],
     subcategory_income: [],
     monthly_expense: [],
@@ -273,6 +250,33 @@ async function fetchBundleFallback(
     budgets: [],
     expense_total: expenseTotal,
     income_total: incomeTotal,
+  };
+}
+
+async function resolveCategoriesBundle(
+  supabase: ServerSupabaseClient,
+  period: CategoriesPeriod,
+  mode: BalanceMode
+): Promise<BundlePayload> {
+  const base =
+    parseBundle(await rpcCategoriesAnalyticsBundle(supabase, period, mode).catch(() => null)) ??
+    (await fetchBundleFallback(supabase, period, mode));
+
+  const overlay = await overlayRefundAwareBreakdown(
+    supabase,
+    period.current,
+    period.previous,
+    mode
+  );
+
+  return {
+    ...base,
+    expense_current: overlay.expense_current as BreakdownRow[],
+    expense_previous: overlay.expense_previous as BreakdownRow[],
+    income_current: overlay.income_current as BreakdownRow[],
+    income_previous: overlay.income_previous as BreakdownRow[],
+    expense_total: overlay.expense_total,
+    income_total: overlay.income_total,
   };
 }
 
@@ -285,8 +289,8 @@ export async function fetchCategoriesAnalytics(
   const mode = balanceMode(settings);
   const filters = parseFilters(params);
 
-  const [bundleRaw, catsRes] = await Promise.all([
-    rpcCategoriesAnalyticsBundle(supabase, period, mode).catch(() => null),
+  const [bundle, catsRes] = await Promise.all([
+    resolveCategoriesBundle(supabase, period, mode),
     supabase
       .from("categories")
       .select("id, name, type, color, icon, sort_order")
@@ -296,10 +300,6 @@ export async function fetchCategoriesAnalytics(
   ]);
 
   if (catsRes.error) throw catsRes.error;
-
-  const bundle: BundlePayload =
-    parseBundle(bundleRaw) ??
-    (await fetchBundleFallback(supabase, period, mode));
 
   const expenseMap = new Map(
     bundle.expense_current.map((r) => [
@@ -519,9 +519,7 @@ export async function fetchCategoryDetailAnalytics(
   if (error) throw error;
   if (!cat) return null;
 
-  const bundle =
-    parseBundle(await rpcCategoriesAnalyticsBundle(supabase, period, mode).catch(() => null)) ??
-    (await fetchBundleFallback(supabase, period, mode));
+  const bundle = await resolveCategoriesBundle(supabase, period, mode);
 
   const c = cat as { id: string; name: string; type: string; color: string | null; icon: string | null };
   const isIncome = c.type === "income";
