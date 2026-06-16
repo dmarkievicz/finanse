@@ -1,6 +1,9 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  computeFilteredCashflowSummary,
+  computeFilteredDailyBreakdown,
+} from "@/lib/transactions/compute-period-cashflow";
 import type { TransactionFilterState } from "@/lib/transactions/filter-state";
-import { rpcFilterParams } from "@/lib/transactions/rpc-filters";
 
 export interface TransactionSummary {
   txCount: number;
@@ -22,36 +25,15 @@ export async function fetchTransactionSummary(
   supabase: ServerSupabaseClient,
   filters: TransactionFilterState
 ): Promise<TransactionSummary> {
-  const { data, error } = await supabase.rpc(
-    "get_transactions_summary",
-    rpcFilterParams(filters) as never
-  );
-
-  if (error) {
-    if (error.code === "PGRST202" || error.message?.includes("get_transactions_summary")) {
-      return emptySummary();
-    }
-    throw error;
-  }
-
-  const row = (Array.isArray(data) ? data[0] : data) as {
-    tx_count: number;
-    income_total: number;
-    expense_total: number;
-    max_income: number;
-    max_expense: number;
-  } | null;
-
-  const income = Number(row?.income_total ?? 0);
-  const expense = Number(row?.expense_total ?? 0);
+  const row = await computeFilteredCashflowSummary(supabase, filters);
 
   return {
-    txCount: Number(row?.tx_count ?? 0),
-    incomeTotal: income,
-    expenseTotal: expense,
-    balance: income - expense, // net przychody − wydatki (zwroty w przychodach)
-    maxIncome: Number(row?.max_income ?? 0),
-    maxExpense: Number(row?.max_expense ?? 0),
+    txCount: row.tx_count,
+    incomeTotal: row.income_pln,
+    expenseTotal: row.expense_pln,
+    balance: row.surplus_pln,
+    maxIncome: row.max_income,
+    maxExpense: row.max_expense,
   };
 }
 
@@ -59,28 +41,13 @@ export async function fetchTransactionDailyBreakdown(
   supabase: ServerSupabaseClient,
   filters: TransactionFilterState
 ): Promise<DailyBreakdownRow[]> {
-  const { data, error } = await supabase.rpc(
-    "get_transactions_daily_breakdown",
-    rpcFilterParams(filters) as never
-  );
-
-  if (error) {
-    if (error.code === "PGRST202") return [];
-    throw error;
-  }
-
-  const rows = (Array.isArray(data) ? data : []) as {
-    day: string;
-    income_pln: number;
-    expense_pln: number;
-    tx_count: number;
-  }[];
+  const rows = await computeFilteredDailyBreakdown(supabase, filters);
 
   return rows.map((r) => ({
     day: r.day,
-    incomePln: Number(r.income_pln),
-    expensePln: Number(r.expense_pln),
-    txCount: Number(r.tx_count),
+    incomePln: r.income_pln,
+    expensePln: r.expense_pln,
+    txCount: r.tx_count,
   }));
 }
 

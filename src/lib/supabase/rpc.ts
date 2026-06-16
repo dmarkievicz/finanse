@@ -1,4 +1,5 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
+import { computeRefundAwareCashflow } from "@/lib/transactions/compute-period-cashflow";
 import type {
   AccountBalance,
   AccountManageRow,
@@ -7,99 +8,6 @@ import type {
 } from "@/types/database";
 
 export type BalanceMode = "current" | "full";
-
-async function getAnalysisStartDate(supabase: ServerSupabaseClient): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("user_settings")
-    .select("analysis_start_date")
-    .maybeSingle();
-  if (error) throw error;
-  return (data as { analysis_start_date?: string | null } | null)?.analysis_start_date ?? null;
-}
-
-function clampFromToAnalysisStart(from: string, analysisStartDate: string | null, mode: BalanceMode) {
-  if (mode === "full" || !analysisStartDate) return from;
-  // Both are YYYY-MM-DD strings, so lexicographic compare works.
-  return analysisStartDate > from ? analysisStartDate : from;
-}
-
-function round2(n: number) {
-  return Math.round(n * 100) / 100;
-}
-
-async function computeRefundAwareCashflow(
-  supabase: ServerSupabaseClient,
-  from: string,
-  to: string,
-  mode: BalanceMode
-): Promise<MonthlyCashflow> {
-  const analysisStartDate = await getAnalysisStartDate(supabase);
-  const clampedFrom = clampFromToAnalysisStart(from, analysisStartDate, mode);
-
-  // Refund-aware cashflow:
-  // - income type: net_pln contributes to income (can be negative => odliczenie od przychodu)
-  // - expense type:
-  //   - net_pln < 0 => normal expense => contributes to expenses as positive (-net_pln)
-  //   - net_pln > 0 => refund/correction => contributes to income as positive (+net_pln)
-  let income = 0;
-  let expense = 0;
-
-  const pageSize = 500;
-  let offset = 0;
-
-  while (true) {
-    const { data: txPage, error: txError } = await supabase
-      .from("transactions")
-      .select("id, type, status, date, created_at")
-      .is("deleted_at", null)
-      .in("type", ["income", "expense"])
-      .neq("status", "needs_review")
-      .gte("date", clampedFrom)
-      .lte("date", to)
-      .order("date", { ascending: true })
-      .order("created_at", { ascending: true })
-      .range(offset, offset + pageSize - 1);
-
-    if (txError) throw txError;
-
-    const txs = (txPage ?? []) as { id: string; type: string; status: string; date: string }[];
-    if (!txs.length) break;
-
-    const ids = txs.map((t) => t.id);
-    const { data: entries, error: entriesError } = await supabase
-      .from("transaction_entries")
-      .select("transaction_id, amount_pln")
-      .in("transaction_id", ids);
-
-    if (entriesError) throw entriesError;
-
-    const netByTx = new Map<string, number>();
-    for (const e of (entries ?? []) as { transaction_id: string; amount_pln: number | null }[]) {
-      const tid = e.transaction_id;
-      const amt = Number(e.amount_pln ?? 0);
-      netByTx.set(tid, (netByTx.get(tid) ?? 0) + amt);
-    }
-
-    for (const t of txs) {
-      const net = netByTx.get(t.id) ?? 0;
-      if (t.type === "income") {
-        income += net;
-      } else if (t.type === "expense") {
-        if (net > 0) income += net;
-        else if (net < 0) expense += -net;
-      }
-    }
-
-    if (txs.length < pageSize) break;
-    offset += pageSize;
-  }
-
-  return {
-    income_pln: round2(income),
-    expense_pln: round2(expense),
-    surplus_pln: round2(income - expense),
-  };
-}
 
 export async function rpcNetWorth(
   supabase: ServerSupabaseClient,
