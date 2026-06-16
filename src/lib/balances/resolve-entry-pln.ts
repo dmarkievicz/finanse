@@ -56,6 +56,7 @@ export function ledgerEntryPln(entry: EntryPlnInput): number {
 
 /**
  * Gdy suma PLN ≈ saldo obce (błędne amount_pln 1:1), przelicz z waluty konta.
+ * @deprecated Używane tylko w testach — salda kont liczą się przez valuateNativeToPln + kurs NBP.
  */
 export function reconcileForeignBalancePln(
   native: number,

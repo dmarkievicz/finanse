@@ -1,8 +1,10 @@
 import type { AccountManageRow } from "@/types/database";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { fetchAccountsManage } from "@/lib/queries/accounts";
-import { fetchTotalNetWorth } from "@/lib/queries/net-worth";
-import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
+import {
+  fetchInstrumentsMarketValue,
+} from "@/lib/queries/net-worth";
+import { fetchPortfoliosMarketValue } from "@/lib/queries/investment-portfolios";
 import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
 import { fetchAccountPhotoUrls } from "@/lib/queries/account-photos";
@@ -23,12 +25,10 @@ export async function fetchAccountsPageData(
   supabase: ServerSupabaseClient,
   asOfDate = new Date().toISOString().slice(0, 10)
 ): Promise<AccountsPageData> {
-  const settings = await fetchUserSettings(supabase);
-  const mode = balanceMode(settings);
-
-  const [manage, netWorth] = await Promise.all([
+  const [manage, instruments, portfolios] = await Promise.all([
     fetchAccountsManage(supabase, asOfDate),
-    fetchTotalNetWorth(supabase, asOfDate, mode),
+    fetchInstrumentsMarketValue(supabase),
+    fetchPortfoliosMarketValue(supabase),
   ]);
 
   const filtered = manage.accounts.filter((a) => !isAssetLedgerAccount(a.account_name));
@@ -47,6 +47,11 @@ export async function fetchAccountsPageData(
     })),
     (a) => a.account_name
   );
+
+  const accountsNet = accounts
+    .filter((a) => a.include_in_net_worth)
+    .reduce((sum, a) => sum + a.balance, 0);
+  const netWorth = accountsNet + instruments + portfolios;
 
   return { accounts, netWorth, asOfDate: manage.asOfDate };
 }

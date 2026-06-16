@@ -107,23 +107,6 @@ describe("ledgerEntryPln", () => {
   });
 });
 
-describe("reconcileForeignBalancePln", () => {
-  it("przelicza saldo EUR gdy PLN ≈ 1:1 z native", () => {
-    const pln = reconcileForeignBalancePln(
-      -3151.95,
-      -3152,
-      "EUR",
-      [0.233645],
-      4.28
-    );
-    assert.ok(Math.abs(pln + 13490) < 50);
-  });
-
-  it("nie zmienia gdy PLN już przeliczone", () => {
-    assert.equal(reconcileForeignBalancePln(-3151.95, -13500, "EUR", [], 4.28), -13500);
-  });
-});
-
 describe("resolveTransferPlnAmount", () => {
   it("transfer PLN→EUR po kursie 0,233645 EUR/PLN", () => {
     const pln = resolveTransferPlnAmount(

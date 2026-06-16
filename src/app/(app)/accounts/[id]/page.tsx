@@ -9,7 +9,7 @@ import { fetchAccountTransactionCount } from "@/lib/queries/transactions";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { fetchAccountLedgerBalances } from "@/lib/queries/account-ledger-balances";
 import { rpcAllAccountBalances } from "@/lib/supabase/rpc";
-import { normalizeCurrency } from "@/lib/balances/resolve-entry-pln";
+import { normalizeCurrency } from "@/lib/fx/convert";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";

@@ -12,7 +12,8 @@ import {
   type BalanceMode,
 } from "@/lib/supabase/rpc";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
-import { fetchTotalNetWorth } from "@/lib/queries/net-worth";
+import { fetchTotalNetWorth, fetchInstrumentsMarketValue } from "@/lib/queries/net-worth";
+import { fetchPortfoliosMarketValue } from "@/lib/queries/investment-portfolios";
 import { sortByNamePl } from "@/lib/locale-sort";
 import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
@@ -65,15 +66,16 @@ export async function fetchAccounts(
   const settings = await fetchUserSettings(supabase);
   const mode: BalanceMode = balanceMode(settings);
 
-  const [balances, netWorth, ledgerBalances] = await Promise.all([
+  const [balances, ledgerBalances, instruments, portfolios] = await Promise.all([
     rpcAccountBalances(supabase, asOfDate, mode),
-    fetchTotalNetWorth(supabase, asOfDate, mode),
     fetchAccountLedgerBalances(
       supabase,
       asOfDate,
       settings?.analysis_start_date ?? null,
       mode
     ),
+    fetchInstrumentsMarketValue(supabase),
+    fetchPortfoliosMarketValue(supabase),
   ]);
 
   const filtered = balances.filter((a) => !isAssetLedgerAccount(a.account_name));
@@ -102,6 +104,9 @@ export async function fetchAccounts(
     }),
     (a) => a.account_name
   );
+
+  const accountsNet = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const netWorth = accountsNet + instruments + portfolios;
 
   const byType = ACCOUNT_TYPE_ORDER.reduce(
     (acc, type) => {

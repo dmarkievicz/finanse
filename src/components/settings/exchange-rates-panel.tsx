@@ -28,8 +28,8 @@ export function ExchangeRatesPanel() {
     <div className="rounded-xl border border-border bg-card p-5">
       <h2 className="text-sm font-medium">Kursy walut NBP</h2>
       <p className="mt-2 text-sm text-muted">
-        Automatyczne kursy EUR, USD, GBP, CHF i CZK z tabeli A NBP. Używane przy dodawaniu
-        transakcji walutowych.
+        Automatyczne kursy EUR, USD, GBP, CHF i CZK z tabeli A NBP. Służą do wyceny
+        portfela (saldo kont w PLN) oraz przy dodawaniu transakcji walutowych.
       </p>
       <button
         type="button"
