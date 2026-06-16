@@ -1,6 +1,7 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import type { CategoryBreakdown } from "@/types/database";
 import { resolveSignedEntryPln } from "@/lib/balances/resolve-entry-pln";
+import { isExcludedFromExcelCashflow } from "@/lib/import/excel-cashflow-filter";
 import { splitTransactionFlow } from "@/lib/transactions/cashflow-amounts";
 import {
   resolveDateRange,
@@ -88,6 +89,41 @@ async function loadEntriesByTxId(
   return netByTx;
 }
 
+/** Transakcje z pustym Currency of Amount w Excelu (jak pivot). */
+async function loadExcelExcludedTxIds(
+  supabase: ServerSupabaseClient,
+  ids: string[]
+): Promise<Set<string>> {
+  const excluded = new Set<string>();
+  if (!ids.length) return excluded;
+
+  const chunkSize = 200;
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const { data, error } = await supabase
+      .from("import_rows")
+      .select("transaction_id, raw_data")
+      .in("transaction_id", chunk);
+
+    if (error) throw error;
+
+    for (const row of (data ?? []) as {
+      transaction_id: string;
+      raw_data: Record<string, unknown> | null;
+    }[]) {
+      if (isExcludedFromExcelCashflow(row.raw_data)) {
+        excluded.add(row.transaction_id);
+      }
+    }
+  }
+
+  return excluded;
+}
+
+function shouldCountInCashflow(txId: string, excluded: Set<string>): boolean {
+  return !excluded.has(txId);
+}
+
 async function fetchTransactionIdsPage(
   supabase: ServerSupabaseClient,
   filters: TransactionFilterState,
@@ -169,9 +205,14 @@ export async function computeRefundAwareCashflow(
       supabase,
       txs.map((t) => t.id)
     );
+    const excluded = await loadExcelExcludedTxIds(
+      supabase,
+      txs.map((t) => t.id)
+    );
 
     const totals = { income: 0, expense: 0 };
     for (const t of txs) {
+      if (!shouldCountInCashflow(t.id, excluded)) continue;
       accumulateNet(t.type, netByTx.get(t.id) ?? 0, totals);
     }
     income += totals.income;
@@ -244,8 +285,13 @@ export async function computeRefundAwareCategoryBreakdown(
       supabase,
       txs.map((t) => t.id)
     );
+    const excluded = await loadExcelExcludedTxIds(
+      supabase,
+      txs.map((t) => t.id)
+    );
 
     for (const t of txs) {
+      if (!shouldCountInCashflow(t.id, excluded)) continue;
       const net = netByTx.get(t.id) ?? 0;
       if (section === "income") {
         if (t.type === "income" && net !== 0) add(t.category_id, net);
