@@ -303,13 +303,24 @@ function validateRow(row) {
   };
 }
 
-function signedAmountPln(amount, exchangeRate) {
-  const abs = Math.round(Math.abs(amount) * exchangeRate * 100) / 100;
+function signedAmountPln(amount, exchangeRate, currency = "PLN") {
+  const cur = (currency || "PLN").trim().toUpperCase();
+  const abs =
+    cur === "PLN"
+      ? Math.round(Math.abs(amount) * 100) / 100
+      : Math.round(Math.abs(amount) * exchangeRate * 100) / 100;
   return amount < 0 ? -abs : abs;
 }
 
-function buildIncomeExpenseEntry(txType, excelAmount, exchangeRate) {
-  const amountPln = signedAmountPln(excelAmount, exchangeRate);
+function transferAmountPln(absAmount, exchangeRate, currency = "PLN") {
+  const cur = (currency || "PLN").trim().toUpperCase();
+  return cur === "PLN"
+    ? Math.round(absAmount * 100) / 100
+    : Math.round(absAmount * exchangeRate * 100) / 100;
+}
+
+function buildIncomeExpenseEntry(txType, excelAmount, exchangeRate, currency) {
+  const amountPln = signedAmountPln(excelAmount, exchangeRate, currency);
   if (txType === "income") {
     return { amount: excelAmount, amount_pln: amountPln };
   }
@@ -325,7 +336,8 @@ function buildEntries(row, validation, accountMap) {
     const signed = buildIncomeExpenseEntry(
       validation.txType,
       row.amount,
-      row.exchange_rate
+      row.exchange_rate,
+      row.currency
     );
     const accountName = validation.useCashAccount
       ? CASH_ACCOUNT
@@ -342,7 +354,7 @@ function buildEntries(row, validation, accountMap) {
     });
   } else if (validation.txType === "transfer") {
     const absAmount = Math.abs(row.amount);
-    const amountPln = Math.round(absAmount * row.exchange_rate * 100) / 100;
+    const amountPln = transferAmountPln(absAmount, row.exchange_rate, row.currency);
     entries.push({
       account_id: accountMap.get(row.source_account),
       amount: -absAmount,
@@ -361,7 +373,7 @@ function buildEntries(row, validation, accountMap) {
     });
   } else if (validation.txType === "exchange") {
     const absAmount = Math.abs(row.amount);
-    const amountPln = Math.round(absAmount * row.exchange_rate * 100) / 100;
+    const amountPln = transferAmountPln(absAmount, row.exchange_rate, row.currency);
     entries.push({
       account_id: accountMap.get(row.source_account),
       amount: -absAmount,
@@ -380,7 +392,7 @@ function buildEntries(row, validation, accountMap) {
     });
   } else if (validation.txType === "adjustment") {
     const acc = row.target_account || row.source_account;
-    const signed = signedAmountPln(row.amount, row.exchange_rate);
+    const signed = signedAmountPln(row.amount, row.exchange_rate, row.currency);
     entries.push({
       account_id: accountMap.get(acc),
       amount: row.amount,

@@ -13,6 +13,11 @@ describe("computeAmountPln / signedAmountPln", () => {
     assert.equal(signedAmountPln(-50, 2), -100);
   });
 
+  it("PLN nie mnoży przez kurs (stary rate z poprzedniego wiersza)", () => {
+    assert.equal(signedAmountPln(531.95, 4.25, "PLN"), 531.95);
+    assert.equal(signedAmountPln(-531.95, 4.25, "PLN"), -531.95);
+  });
+
   it("computeAmountPln zachowuje znak", () => {
     assert.equal(computeAmountPln(-10, 4.5), -45);
   });

@@ -1,17 +1,22 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-function signedAmountPln(amount: number, exchangeRate: number): number {
-  const abs = Math.round(Math.abs(amount) * exchangeRate * 100) / 100;
+function signedAmountPln(amount: number, exchangeRate: number, currency?: string): number {
+  const cur = currency?.trim().toUpperCase();
+  const abs =
+    cur === "PLN"
+      ? Math.round(Math.abs(amount) * 100) / 100
+      : Math.round(Math.abs(amount) * exchangeRate * 100) / 100;
   return amount < 0 ? -abs : abs;
 }
 
 function buildImportIncomeExpenseEntry(
   txType: "income" | "expense",
   excelAmount: number,
-  exchangeRate: number
+  exchangeRate: number,
+  currency = "PLN"
 ) {
-  const amountPln = signedAmountPln(excelAmount, exchangeRate);
+  const amountPln = signedAmountPln(excelAmount, exchangeRate, currency);
   if (txType === "income") {
     return { amount: excelAmount, amount_pln: amountPln };
   }
@@ -110,9 +115,15 @@ describe("buildImportIncomeExpenseEntry", () => {
   });
 
   it("zachowuje znak przy kursie EUR", () => {
-    const e = buildImportIncomeExpenseEntry("expense", -50, 4.3);
+    const e = buildImportIncomeExpenseEntry("expense", -50, 4.3, "EUR");
     assert.equal(e.amount, 50);
     assert.equal(e.amount_pln, 215);
+  });
+
+  it("PLN z błędnym kursem — amount_pln = kwota PLN", () => {
+    const e = buildImportIncomeExpenseEntry("expense", 531.95, 4.25, "PLN");
+    assert.equal(e.amount, -531.95);
+    assert.equal(e.amount_pln, -531.95);
   });
 });
 

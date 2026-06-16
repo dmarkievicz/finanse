@@ -13,9 +13,10 @@ import { convertFromPln, convertToPlnAbs } from "@/lib/fx/convert";
 export function buildImportIncomeExpenseEntry(
   txType: "income" | "expense",
   excelAmount: number,
-  exchangeRate: number
+  exchangeRate: number,
+  currency = "PLN"
 ): { amount: number; amount_pln: number } {
-  const amountPln = signedAmountPln(excelAmount, exchangeRate);
+  const amountPln = signedAmountPln(excelAmount, exchangeRate, currency);
   if (txType === "income") {
     return { amount: excelAmount, amount_pln: amountPln };
   }
@@ -25,10 +26,15 @@ export function buildImportIncomeExpenseEntry(
 /** Transfer / przewalutowanie — kwota w Excelu to zwykle wartość dodatnia. */
 export function buildImportTransferAmounts(
   excelAmount: number,
-  exchangeRate: number
+  exchangeRate: number,
+  currency = "PLN"
 ): { absAmount: number; amountPln: number } {
   const absAmount = Math.abs(excelAmount);
-  const amountPln = Math.round(absAmount * exchangeRate * 100) / 100;
+  const cur = currency.trim().toUpperCase();
+  const amountPln =
+    cur === "PLN"
+      ? Math.round(absAmount * 100) / 100
+      : Math.round(absAmount * exchangeRate * 100) / 100;
   return { absAmount, amountPln };
 }
 
@@ -59,7 +65,7 @@ export function buildTransferLegs(
   const absExcel = Math.abs(excelAmount);
 
   if (srcCur === tgtCur) {
-    const { absAmount, amountPln } = buildImportTransferAmounts(excelAmount, rate);
+    const { absAmount, amountPln } = buildImportTransferAmounts(excelAmount, rate, excelCur);
     return {
       source: { amount: -absAmount, currency: srcCur, exchangeRate: rate, amountPln: -amountPln },
       target: { amount: absAmount, currency: tgtCur, exchangeRate: rate, amountPln },
@@ -89,7 +95,7 @@ export function buildTransferLegs(
     };
   }
 
-  const { absAmount, amountPln } = buildImportTransferAmounts(excelAmount, rate);
+  const { absAmount, amountPln } = buildImportTransferAmounts(excelAmount, rate, excelCur);
   return {
     source: { amount: -absAmount, currency: srcCur, exchangeRate: rate, amountPln: -amountPln },
     target: { amount: absAmount, currency: tgtCur, exchangeRate: rate, amountPln },

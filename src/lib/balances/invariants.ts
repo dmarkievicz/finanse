@@ -1,10 +1,33 @@
-/** Zaokrąglenie kwoty PLN zgodne z importem Excel. */
-export function computeAmountPln(amount: number, exchangeRate: number): number {
-  return Math.round(Math.abs(amount) * exchangeRate * 100) / 100 * Math.sign(amount || 1);
+function normalizeAmountCurrency(currency?: string): string | undefined {
+  if (!currency?.trim()) return undefined;
+  const c = currency.trim().toUpperCase();
+  return c === "EURO" ? "EUR" : c;
 }
 
-export function signedAmountPln(amount: number, exchangeRate: number): number {
-  const abs = Math.round(Math.abs(amount) * exchangeRate * 100) / 100;
+/** Zaokrąglenie kwoty PLN zgodne z importem Excel. */
+export function computeAmountPln(
+  amount: number,
+  exchangeRate: number,
+  currency?: string
+): number {
+  const cur = normalizeAmountCurrency(currency);
+  const abs =
+    cur === "PLN"
+      ? Math.round(Math.abs(amount) * 100) / 100
+      : Math.round(Math.abs(amount) * exchangeRate * 100) / 100;
+  return abs * Math.sign(amount || 1);
+}
+
+export function signedAmountPln(
+  amount: number,
+  exchangeRate: number,
+  currency?: string
+): number {
+  const cur = normalizeAmountCurrency(currency);
+  const abs =
+    cur === "PLN"
+      ? Math.round(Math.abs(amount) * 100) / 100
+      : Math.round(Math.abs(amount) * exchangeRate * 100) / 100;
   return amount < 0 ? -abs : abs;
 }
 

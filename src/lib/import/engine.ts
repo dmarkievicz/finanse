@@ -372,7 +372,8 @@ async function processBatch(supabase: ImportSupabase, userId: string, importId: 
         const signed = buildImportIncomeExpenseEntry(
           validation.txType,
           row.amount!,
-          row.exchange_rate
+          row.exchange_rate,
+          row.currency
         );
         const accountKey = validation.useCashAccount
           ? CASH_ACCOUNT
@@ -425,7 +426,7 @@ async function processBatch(supabase: ImportSupabase, userId: string, importId: 
           amount: row.amount!,
           currency: row.currency,
           exchange_rate: row.exchange_rate,
-          amount_pln: signedAmountPln(row.amount!, row.exchange_rate),
+          amount_pln: signedAmountPln(row.amount!, row.exchange_rate, row.currency),
           sort_order: 0,
         });
       }

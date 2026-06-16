@@ -1,6 +1,6 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import type { DashboardPeriod } from "@/lib/dashboard/period";
-import { rpcPeriodCashflow, type BalanceMode } from "@/lib/supabase/rpc";
+import { rpcCategoryBreakdown, rpcPeriodCashflow, type BalanceMode } from "@/lib/supabase/rpc";
 import {
   buildCategorySlices,
   type DashboardAccountRow,
@@ -189,12 +189,16 @@ export async function rpcDashboardBundle(
 
   const bundle = parseBundle((data ?? {}) as Record<string, unknown>);
 
-  const [currentCashflow, prevCashflow] = await Promise.all([
+  const [currentCashflow, prevCashflow, categoryCurrent, categoryPrevious] = await Promise.all([
     rpcPeriodCashflow(supabase, current.from, current.to, mode),
     rpcPeriodCashflow(supabase, previous.from, previous.to, mode),
+    rpcCategoryBreakdown(supabase, current.from, current.to, mode),
+    rpcCategoryBreakdown(supabase, previous.from, previous.to, mode),
   ]);
   bundle.current_cashflow = currentCashflow;
   bundle.prev_cashflow = prevCashflow;
+  bundle.category_current = categoryCurrent;
+  bundle.category_previous = categoryPrevious;
 
   const { error: instFnErr } = await supabase.rpc("get_instruments_market_value_pln" as never);
   if (instFnErr) {
