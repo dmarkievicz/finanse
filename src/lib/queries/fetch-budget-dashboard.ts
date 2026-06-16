@@ -21,11 +21,14 @@ import {
 } from "@/lib/dashboard/budget-metrics";
 import type { CategoryBreakdown } from "@/types/database";
 import {
+  rpcAccountBalances,
   rpcCategoryBreakdownTyped,
   rpcMonthlyCashflow,
+  rpcNetWorth,
   rpcPeriodCashflow,
   type BalanceMode,
 } from "@/lib/supabase/rpc";
+import { sumLiquidAssets } from "@/lib/queries/dashboard";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 
 interface CategoryMeta {
@@ -57,6 +60,11 @@ export interface BudgetDashboardPageData {
   performanceTitle: string;
   performanceSubtitle: string;
   performancePositive: boolean;
+  netWorth: number;
+  liquidAssets: number;
+  savingsRate: number;
+  biggestExpenseName: string | null;
+  biggestExpenseAmount: number;
   incomeRows: BudgetBreakdownRow[];
   incomeTotals: BudgetBreakdownTotals;
   expenseRows: BudgetBreakdownRow[];
@@ -283,12 +291,15 @@ export async function fetchBudgetDashboardPageData(
   }
   const to = selection.to;
 
-  const [incomeBreakdown, expenseBreakdown, budgets, periodCashflow] = await Promise.all([
-    rpcCategoryBreakdownTyped(supabase, from, to, "income", mode),
-    rpcCategoryBreakdownTyped(supabase, from, to, "expense", mode),
-    fetchBudgets(supabase, selection.resolvedYear),
-    rpcPeriodCashflow(supabase, from, to, mode),
-  ]);
+  const [incomeBreakdown, expenseBreakdown, budgets, periodCashflow, netWorth, accountBalances] =
+    await Promise.all([
+      rpcCategoryBreakdownTyped(supabase, from, to, "income", mode),
+      rpcCategoryBreakdownTyped(supabase, from, to, "expense", mode),
+      fetchBudgets(supabase, selection.resolvedYear),
+      rpcPeriodCashflow(supabase, from, to, mode),
+      rpcNetWorth(supabase, to, mode),
+      rpcAccountBalances(supabase, to, mode),
+    ]);
 
   const incomeRows = buildBreakdownRows(
     incomeBreakdown,
@@ -315,6 +326,9 @@ export async function fetchBudgetDashboardPageData(
   );
   const balance = periodCashflow.surplus_pln;
   const perf = performanceResult(balance);
+  const liquidAssets = sumLiquidAssets(accountBalances);
+  const savingsRate =
+    periodCashflow.income_pln > 0 ? (periodCashflow.surplus_pln / periodCashflow.income_pln) * 100 : 0;
 
   const incomeDonut = incomeDonutSlices(incomeRows, periodCashflow.income_pln);
   const expenseDonut = expenseDonutSlices(expenseRows, periodCashflow.expense_pln);
@@ -367,6 +381,11 @@ export async function fetchBudgetDashboardPageData(
     expenseTotals.tracked > 0 ||
     monthlySeries.some((m) => m.hasData);
 
+  const biggestExpense = expenseRows.reduce<BudgetBreakdownRow | null>(
+    (best, row) => (row.tracked > (best?.tracked ?? 0) ? row : best),
+    expenseRows[0] ?? null
+  );
+
   return {
     selection,
     yearOptions,
@@ -376,6 +395,11 @@ export async function fetchBudgetDashboardPageData(
     performanceTitle: perf.title,
     performanceSubtitle: perf.subtitle,
     performancePositive: perf.positive,
+    netWorth,
+    liquidAssets,
+    savingsRate,
+    biggestExpenseName: biggestExpense?.categoryName ?? null,
+    biggestExpenseAmount: biggestExpense?.tracked ?? 0,
     incomeRows,
     incomeTotals,
     expenseRows,

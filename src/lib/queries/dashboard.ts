@@ -108,7 +108,7 @@ const CATEGORY_COLORS = [
 
 const LIQUID_TYPES = new Set(["bank", "cash"]);
 
-function sumLiquidAssets(balances: { account_type: string; balance_pln: number }[]): number {
+export function sumLiquidAssets(balances: { account_type: string; balance_pln: number }[]): number {
   return balances
     .filter((b) => LIQUID_TYPES.has(b.account_type) && Number(b.balance_pln) > 0)
     .reduce((s, b) => s + Number(b.balance_pln), 0);

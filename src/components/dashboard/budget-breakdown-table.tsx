@@ -14,6 +14,7 @@ interface BudgetBreakdownTableProps {
   expenseTotals: BudgetBreakdownTotals;
   periodFrom: string;
   periodTo: string;
+  className?: string;
 }
 
 const NUM = "px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap";
@@ -41,11 +42,12 @@ export function BudgetBreakdownTable({
   expenseTotals,
   periodFrom,
   periodTo,
+  className,
 }: BudgetBreakdownTableProps) {
   const hasAnyRows = incomeRows.length > 0 || expenseRows.length > 0;
 
   return (
-    <SectionCard padding="none" className="overflow-hidden">
+    <SectionCard padding="none" className={cn("flex h-full flex-col overflow-hidden", className)}>
       <DashboardSectionHeader title={title} />
 
       {!hasAnyRows ? (

@@ -17,7 +17,7 @@ export function DashboardHeader({ selection, yearOptions }: DashboardHeaderProps
           Pulpit finansowy
         </h1>
         <p className="mt-0.5 text-sm text-muted">
-          Analiza budżetu, przychodów i wydatków · PLN
+          Analiza budżetowa przychodów i wydatków · waluta bazowa PLN
         </p>
       </div>
 

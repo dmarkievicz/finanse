@@ -4,7 +4,7 @@ import { BudgetStatusNoticeCard } from "@/components/dashboard/budget-status-not
 import { DashboardBudgetKpiGrid } from "@/components/dashboard/dashboard-budget-kpi-grid";
 import { BudgetBreakdownTable } from "@/components/dashboard/budget-breakdown-table";
 import { CategoryDonutChart } from "@/components/dashboard/category-donut-chart";
-import { TrackedVsBudgetChart } from "@/components/dashboard/tracked-vs-budget-chart";
+import { MonthlyIncomeExpenseChart } from "@/components/dashboard/monthly-income-expense-chart";
 import { MonthlyPerformanceChart } from "@/components/dashboard/monthly-performance-chart";
 import { DashboardChartPanel } from "@/components/dashboard/dashboard-chart-panel";
 import { SummaryPanel } from "@/components/dashboard/summary-panel";
@@ -31,56 +31,79 @@ export function BudgetDashboardContent({ data }: BudgetDashboardContentProps) {
         selection={selection}
         completionPct={data.completionPct}
         balance={data.balance}
-        performanceTitle={data.performanceTitle}
         performanceSubtitle={data.performanceSubtitle}
         performancePositive={data.performancePositive}
+        netWorth={data.netWorth}
+        liquidAssets={data.liquidAssets}
+        savingsRate={data.savingsRate}
+        biggestExpenseName={data.biggestExpenseName}
+        biggestExpenseAmount={data.biggestExpenseAmount}
       />
 
-      <BudgetBreakdownTable
-        title={selection.breakdownTitle}
-        incomeRows={data.incomeRows}
-        incomeTotals={data.incomeTotals}
-        expenseRows={data.expenseRows}
-        expenseTotals={data.expenseTotals}
-        periodFrom={selection.from}
-        periodTo={selection.to}
-      />
-
-      <SummaryPanel title={selection.summaryTitle}>
-        <div className="grid gap-6 md:grid-cols-2">
-          <CategoryDonutChart
-            title="Przychody wg kategorii"
-            slices={data.incomeDonut}
-            total={data.incomeTotals.tracked}
-            accent="income"
-          />
-          <CategoryDonutChart
-            title="Wydatki wg kategorii"
-            slices={data.expenseDonut}
-            total={data.expenseTotals.tracked}
-            accent="expense"
+      <div className="grid gap-4 lg:grid-cols-5 lg:items-stretch">
+        <div className="flex lg:col-span-3">
+          <BudgetBreakdownTable
+            className="w-full"
+            title={selection.breakdownTitle}
+            incomeRows={data.incomeRows}
+            incomeTotals={data.incomeTotals}
+            expenseRows={data.expenseRows}
+            expenseTotals={data.expenseTotals}
+            periodFrom={selection.from}
+            periodTo={selection.to}
           />
         </div>
-      </SummaryPanel>
+
+        <div className="flex lg:col-span-2">
+          <SummaryPanel className="w-full" title={selection.summaryTitle}>
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between gap-5">
+              <CategoryDonutChart
+                layout="stacked"
+                title="Przychody wg kategorii"
+                slices={data.incomeDonut}
+                total={data.incomeTotals.tracked}
+                accent="income"
+              />
+              <CategoryDonutChart
+                layout="stacked"
+                title="Wydatki wg kategorii"
+                slices={data.expenseDonut}
+                total={data.expenseTotals.tracked}
+                accent="expense"
+              />
+            </div>
+          </SummaryPanel>
+        </div>
+      </div>
 
       {data.showMonthlyCharts && data.selection.resolvedYear != null && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <DashboardChartPanel title={`Wykonanie vs budżet · ${data.selection.resolvedYear}`}>
-            <TrackedVsBudgetChart
-              embedded
-              data={data.monthlySeries}
-              highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
-              year={data.selection.resolvedYear}
-            />
-          </DashboardChartPanel>
-          <DashboardChartPanel title={`Wynik miesięczny · ${data.selection.resolvedYear}`}>
-            <MonthlyPerformanceChart
-              embedded
-              data={data.monthlySeries}
-              highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
-              year={data.selection.resolvedYear}
-            />
-          </DashboardChartPanel>
+        <div className="grid gap-4 lg:grid-cols-5 lg:items-stretch">
+          <div className="flex lg:col-span-3">
+            <DashboardChartPanel
+              className="w-full"
+              title={`Przychody vs wydatki · ${data.selection.resolvedYear}`}
+            >
+              <MonthlyIncomeExpenseChart
+                embedded
+                data={data.monthlySeries}
+                highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
+                year={data.selection.resolvedYear}
+              />
+            </DashboardChartPanel>
+          </div>
+          <div className="flex lg:col-span-2">
+            <DashboardChartPanel
+              className="w-full"
+              title={`Wynik miesięczny · ${data.selection.resolvedYear}`}
+            >
+              <MonthlyPerformanceChart
+                embedded
+                data={data.monthlySeries}
+                highlightMonth={selection.isSingleMonth ? selection.resolvedMonth : null}
+                year={data.selection.resolvedYear}
+              />
+            </DashboardChartPanel>
+          </div>
         </div>
       )}
     </div>

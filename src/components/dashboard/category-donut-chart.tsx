@@ -1,34 +1,48 @@
 import type { DonutSlice } from "@/lib/dashboard/budget-metrics";
 import { formatPln } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface CategoryDonutChartProps {
   title: string;
   slices: DonutSlice[];
   total: number;
   accent: "income" | "expense";
+  layout?: "default" | "stacked";
 }
 
-export function CategoryDonutChart({ title, slices, total, accent }: CategoryDonutChartProps) {
-  const size = 120;
-  const stroke = 22;
+export function CategoryDonutChart({
+  title,
+  slices,
+  total,
+  accent,
+  layout = "default",
+}: CategoryDonutChartProps) {
+  const size = layout === "stacked" ? 100 : 120;
+  const stroke = layout === "stacked" ? 18 : 22;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
 
   const accentColor = accent === "income" ? "#059669" : "#e11d48";
+  const stacked = layout === "stacked";
 
   return (
-    <div>
-      <div className="mb-3 flex items-baseline justify-between gap-2">
+    <div className={cn(stacked && "flex min-h-0 flex-1 flex-col")}>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         <span className="text-xs tabular-nums text-muted">Razem {formatPln(total)}</span>
       </div>
 
       {slices.length === 0 || total === 0 ? (
-        <p className="py-8 text-center text-sm text-muted">Brak danych w okresie</p>
+        <p className="py-6 text-center text-sm text-muted">Brak danych w okresie</p>
       ) : (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="relative mx-auto shrink-0 sm:mx-0">
+        <div
+          className={cn(
+            "flex gap-3",
+            stacked ? "min-h-0 flex-1 flex-col sm:flex-row sm:items-center" : "flex-col gap-4 sm:flex-row sm:items-center"
+          )}
+        >
+          <div className={cn("relative shrink-0", stacked ? "mx-auto sm:mx-0" : "mx-auto sm:mx-0")}>
             <svg width={size} height={size} className="-rotate-90">
               <circle
                 cx={size / 2}
@@ -67,7 +81,7 @@ export function CategoryDonutChart({ title, slices, total, accent }: CategoryDon
               </span>
             </div>
           </div>
-          <ul className="min-w-0 flex-1 space-y-1.5">
+          <ul className={cn("min-w-0 flex-1 space-y-1", stacked && "overflow-y-auto")}>
             {slices.map((slice) => (
               <li key={slice.name} className="flex items-center justify-between gap-2 text-[12px]">
                 <span className="flex min-w-0 items-center gap-2">
