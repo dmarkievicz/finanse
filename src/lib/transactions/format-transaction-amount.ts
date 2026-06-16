@@ -11,16 +11,15 @@ export function formatTransactionPlnCell(t: TransactionListItem): string {
   if (displayAmount == null) return "—";
 
   const originalAmount =
-    t.originalAmount ?? (t.pendingAmount != null ? Math.abs(t.pendingAmount) : null);
+    t.originalAmount ?? (t.pendingAmount != null ? t.pendingAmount : null);
   const currency = (t.currency ?? t.pendingCurrency ?? "PLN").toUpperCase();
   const plnAbs = Math.abs(displayAmount);
 
-  if (currency !== "PLN" && originalAmount != null && originalAmount > 0) {
+  if (currency !== "PLN" && originalAmount != null && originalAmount !== 0) {
     if (t.type === "transfer" || t.type === "exchange") {
-      return formatForeignWithPln(originalAmount, currency, plnAbs);
+      return formatForeignWithPln(Math.abs(originalAmount), currency, plnAbs);
     }
-    const signed = displayAmount < 0 ? -originalAmount : originalAmount;
-    return formatForeignWithPln(Math.abs(signed), currency, plnAbs, {
+    return formatForeignWithPln(originalAmount, currency, displayAmount, {
       signed: t.type === "income" || t.type === "expense",
     });
   }
@@ -34,11 +33,17 @@ export function formatTransactionPlnCell(t: TransactionListItem): string {
 
 export function formatTransactionAmountCell(t: TransactionListItem): string {
   const originalAmount =
-    t.originalAmount ?? (t.pendingAmount != null ? Math.abs(t.pendingAmount) : null);
+    t.originalAmount ?? (t.pendingAmount != null ? t.pendingAmount : null);
   if (originalAmount == null) return "—";
   const currency = (t.currency ?? t.pendingCurrency ?? "PLN").toUpperCase();
+  const signed = t.type === "income" || t.type === "expense";
   if (currency === "PLN") {
-    return originalAmount.toLocaleString("pl-PL");
+    return originalAmount.toLocaleString("pl-PL", {
+      signDisplay: signed ? "exceptZero" : "auto",
+    });
   }
-  return formatCurrency(originalAmount, currency, { maxFractionDigits: 2 });
+  return formatCurrency(originalAmount, currency, {
+    signed,
+    maxFractionDigits: 2,
+  });
 }

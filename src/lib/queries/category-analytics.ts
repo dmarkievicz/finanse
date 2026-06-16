@@ -581,7 +581,7 @@ export async function fetchCategoryDetailAnalytics(
     id: t.id,
     date: t.date,
     details: t.details,
-    amount_pln: Math.abs(Number(t.transaction_entries?.[0]?.amount_pln ?? 0)),
+    amount_pln: Number(t.transaction_entries?.[0]?.amount_pln ?? 0),
   }));
 
   const totalPln = current ? Number(current.total_pln) : 0;

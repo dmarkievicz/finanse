@@ -55,6 +55,7 @@ export interface RecentTransactionRow {
   type: "income" | "expense" | "transfer" | "exchange" | "adjustment";
   category: string;
   amountLabel: string;
+  amountPln: number;
   account: string;
   status: string;
 }
@@ -165,8 +166,8 @@ export function buildCategorySlices(
 function formatTransactionAmount(
   type: string,
   entries: { amount_pln: number; accounts: { name: string } | null }[]
-): { amountLabel: string; account: string } {
-  if (!entries.length) return { amountLabel: "—", account: "—" };
+): { amountLabel: string; amountPln: number; account: string } {
+  if (!entries.length) return { amountLabel: "—", amountPln: 0, account: "—" };
 
   if (type === "transfer") {
     const source = entries.find((e) => e.amount_pln < 0);
@@ -179,6 +180,7 @@ function formatTransactionAmount(
     }).format(amount);
     return {
       amountLabel: fmt,
+      amountPln: amount,
       account: `${source?.accounts?.name ?? "?"} → ${target?.accounts?.name ?? "?"}`,
     };
   }
@@ -192,6 +194,7 @@ function formatTransactionAmount(
       signDisplay: "exceptZero",
       maximumFractionDigits: 0,
     }).format(amount),
+    amountPln: amount,
     account: entry.accounts?.name ?? "—",
   };
 }
@@ -447,7 +450,7 @@ export async function fetchDashboardData(
   const recentTransactions: RecentTransactionRow[] = (
     (recentRes.data ?? []) as RecentTxRow[]
   ).map((tx) => {
-    const { amountLabel, account } = formatTransactionAmount(
+    const { amountLabel, amountPln, account } = formatTransactionAmount(
       tx.type,
       tx.transaction_entries ?? []
     );
@@ -457,6 +460,7 @@ export async function fetchDashboardData(
       type: tx.type,
       category: (tx.categories as { name: string } | null)?.name ?? (tx.type === "transfer" ? "Transfer" : "—"),
       amountLabel,
+      amountPln,
       account,
       status: tx.status,
     };

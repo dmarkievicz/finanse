@@ -18,7 +18,7 @@ import {
   formatTransactionAmountCell,
   formatTransactionPlnCell,
 } from "@/lib/transactions/format-transaction-amount";
-import { accumulateFlows } from "@/lib/transactions/cashflow-amounts";
+import { accumulateFlows, isTransactionCashInflow } from "@/lib/transactions/cashflow-amounts";
 import { TransactionsEmptyState } from "@/components/transactions/transactions-empty-state";
 import { cn } from "@/lib/utils";
 
@@ -80,12 +80,7 @@ function TransactionRow({
   const rate = t.exchangeRate ?? t.pendingExchangeRate ?? 1;
 
   const isInflow =
-    displayAmount != null &&
-    (t.type === "income"
-      ? displayAmount > 0
-      : t.type === "expense"
-        ? displayAmount > 0
-        : false);
+    displayAmount != null && isTransactionCashInflow(t.type, displayAmount);
 
   const amountDisplay = formatTransactionPlnCell(t);
 
@@ -186,7 +181,7 @@ function MobileCard({ t, onSelect }: { t: TransactionListItem; onSelect?: (id: s
       <p
         className={cn(
           "text-lg font-bold tabular-nums",
-          displayAmount != null && displayAmount > 0
+          displayAmount != null && isTransactionCashInflow(t.type, displayAmount)
             ? "text-emerald-600"
             : t.type === "income" || t.type === "expense"
               ? "text-red-600"

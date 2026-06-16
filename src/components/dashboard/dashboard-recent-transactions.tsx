@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { RecentTransactionRow } from "@/lib/queries/dashboard";
 import { formatDate } from "@/lib/format";
+import { isTransactionCashInflow } from "@/lib/transactions/cashflow-amounts";
 import { cn } from "@/lib/utils";
 import {
   DashboardEmpty,
@@ -76,9 +77,9 @@ export function DashboardRecentTransactions({ transactions }: DashboardRecentTra
                   <td
                     className={cn(
                       "py-2.5 text-right text-[13px] font-semibold tabular-nums",
-                      tx.type === "income"
+                      isTransactionCashInflow(tx.type, tx.amountPln)
                         ? "text-emerald-600"
-                        : tx.type === "expense"
+                        : tx.type === "income" || tx.type === "expense"
                           ? "text-rose-500"
                           : "text-slate-800"
                     )}

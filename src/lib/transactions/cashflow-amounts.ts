@@ -38,3 +38,8 @@ export function accumulateFlows(
 
   return { income, expense, net };
 }
+
+/** Wpływ na konto: dodatni przychód lub zwrot wydatku. */
+export function isTransactionCashInflow(type: string, amountPln: number): boolean {
+  return (type === "income" || type === "expense") && amountPln > 0;
+}

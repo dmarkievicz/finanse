@@ -103,7 +103,7 @@ export function formatForeignWithPln(
     maxFractionDigits: 2,
   });
   const pln =
-    nativeAmount < 0
+    options?.signed || nativeAmount < 0
       ? formatPlnSigned(plnAmount)
       : formatPln(Math.abs(plnAmount));
   return `${native} (${pln})`;

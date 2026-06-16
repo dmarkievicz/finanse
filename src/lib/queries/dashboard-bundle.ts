@@ -118,8 +118,8 @@ function parseBundle(raw: Record<string, unknown>): DashboardBundleRaw {
 function formatTransactionAmount(
   type: string,
   entries: { amount_pln: number; account_name: string | null }[]
-): { amountLabel: string; account: string } {
-  if (!entries.length) return { amountLabel: "—", account: "—" };
+): { amountLabel: string; amountPln: number; account: string } {
+  if (!entries.length) return { amountLabel: "—", amountPln: 0, account: "—" };
 
   if (type === "transfer") {
     const source = entries.find((e) => e.amount_pln < 0);
@@ -132,18 +132,21 @@ function formatTransactionAmount(
     }).format(amount);
     return {
       amountLabel: fmt,
+      amountPln: amount,
       account: `${source?.account_name ?? "?"} → ${target?.account_name ?? "?"}`,
     };
   }
 
   const entry = entries[0];
+  const amount = Number(entry.amount_pln);
   return {
     amountLabel: new Intl.NumberFormat("pl-PL", {
       style: "currency",
       currency: "PLN",
       signDisplay: "exceptZero",
       maximumFractionDigits: 0,
-    }).format(Number(entry.amount_pln)),
+    }).format(amount),
+    amountPln: amount,
     account: entry.account_name ?? "—",
   };
 }
@@ -264,7 +267,7 @@ export function bundleToDashboardCore(
     }));
 
   const recentTransactions: RecentTransactionRow[] = bundle.recent_transactions.map((tx) => {
-    const { amountLabel, account } = formatTransactionAmount(tx.type, tx.entries);
+    const { amountLabel, amountPln, account } = formatTransactionAmount(tx.type, tx.entries);
     return {
       id: tx.id,
       date: tx.date,
@@ -272,6 +275,7 @@ export function bundleToDashboardCore(
       category:
         tx.category_name ?? (tx.type === "transfer" ? "Transfer" : "—"),
       amountLabel,
+      amountPln,
       account,
       status: tx.status,
     };

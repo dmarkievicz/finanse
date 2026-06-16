@@ -3,6 +3,7 @@ import type { TransactionListItem } from "@/lib/queries/transactions";
 import {
   accountCurrency,
   foreignFromPln,
+  ledgerEntryNative,
   normalizeCurrency,
   plnFromForeign,
   resolveForeignNativeAmount,
@@ -123,17 +124,24 @@ export function parseEntryDetails(entries: EntryRow[]) {
 
   const input = entryInput(primary);
   const signedPln = resolveSignedEntryPln(input);
-  const amountPln = Math.abs(signedPln);
+  const amountPln = signedPln;
   const currency = accountCurrency(primary.currency, primary.accounts?.default_currency);
   const rate = Number(primary.exchange_rate) || 1;
-  let originalAmount = Math.abs(Number(primary.amount));
+  const absPln = Math.abs(signedPln);
+  let originalAmount = ledgerEntryNative(input);
 
   if (currency !== "PLN") {
-    const derivedPln = plnFromForeign(originalAmount, currency, rate);
-    if (originalAmount <= 0 || Math.abs(derivedPln - amountPln) > 0.01) {
-      originalAmount = foreignFromPln(amountPln, currency, rate);
-    } else if (originalAmount > amountPln * 0.9) {
-      originalAmount = foreignFromPln(amountPln, currency, rate);
+    const derivedPln = plnFromForeign(Math.abs(originalAmount), currency, rate);
+    if (Math.abs(originalAmount) <= 0 || Math.abs(derivedPln - absPln) > 0.01) {
+      originalAmount =
+        signedPln < 0
+          ? -foreignFromPln(absPln, currency, rate)
+          : foreignFromPln(absPln, currency, rate);
+    } else if (Math.abs(originalAmount) > absPln * 0.9) {
+      originalAmount =
+        signedPln < 0
+          ? -foreignFromPln(absPln, currency, rate)
+          : foreignFromPln(absPln, currency, rate);
     }
   }
 
