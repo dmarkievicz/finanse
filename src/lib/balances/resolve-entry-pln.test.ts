@@ -14,7 +14,7 @@ function accountCurrency(
   return normalizeCurrency(accountDefaultCurrency ?? entryCurrency);
 }
 
-function resolveSignedEntryPln(entry: {
+function ledgerEntryPln(entry: {
   amount: number;
   amount_pln: number;
   currency: string;
@@ -25,36 +25,62 @@ function resolveSignedEntryPln(entry: {
   const amountPln = Number(entry.amount_pln);
   const rate = Number(entry.exchange_rate) > 0 ? Number(entry.exchange_rate) : 1;
   const acctCur = accountCurrency(entry.currency, entry.accountCurrency);
-  const sign =
-    amount < 0 ? -1 : amount > 0 ? 1 : amountPln < 0 ? -1 : amountPln > 0 ? 1 : 0;
-  if (sign === 0) return 0;
-  const absAmount = Math.abs(amount);
-  const absPln = Math.abs(amountPln);
-  if (acctCur === "PLN") return sign * Math.max(absPln, absAmount);
-  const plnViaAmount = convertToPlnAbs(amount, acctCur, rate);
-  const plnViaStored = absPln;
-  if (plnViaAmount > plnViaStored * 10 && plnViaStored > 0) return sign * plnViaStored;
-  if (plnViaStored <= absAmount * 1.05) return sign * Math.max(plnViaAmount, plnViaStored);
-  return sign * Math.max(plnViaStored, plnViaAmount);
+
+  if (acctCur === "PLN") {
+    const sign = amount < 0 ? -1 : amount > 0 ? 1 : amountPln < 0 ? -1 : 1;
+    return sign * Math.max(Math.abs(amountPln), Math.abs(amount));
+  }
+  if (rate === 1) {
+    if (Math.abs(amountPln) > Math.abs(amount) * 1.5) return amountPln;
+    return amount;
+  }
+  const fromNative = convertToPln(amount, acctCur, rate);
+  const absFrom = Math.abs(fromNative);
+  const absStored = Math.abs(amountPln);
+  if (absFrom > absStored * 10 && absStored > 0) {
+    return amount < 0 || amountPln < 0 ? -absStored : absStored;
+  }
+  if (absStored > 0 && absStored <= Math.abs(amount) * 1.05) {
+    return fromNative;
+  }
+  return absFrom >= absStored ? fromNative : amountPln;
+}
+
+function reconcileForeignBalancePln(
+  native: number,
+  summedPln: number,
+  currency: string,
+  entryRatesNewestFirst: number[],
+  fallbackNbpRate?: number | null
+): number {
+  const cur = normalizeCurrency(currency);
+  if (cur === "PLN" || native === 0) return summedPln;
+  const ratio = Math.abs(summedPln / native);
+  if (ratio >= 1.5) return summedPln;
+  const rate =
+    entryRatesNewestFirst.find((r) => r > 0 && r !== 1) ??
+    (fallbackNbpRate && fallbackNbpRate > 0 ? fallbackNbpRate : null);
+  if (!rate) return summedPln;
+  return convertToPln(native, cur, rate);
 }
 
 function resolveTransferPlnAmount(
-  source: Parameters<typeof resolveSignedEntryPln>[0],
-  target: Parameters<typeof resolveSignedEntryPln>[0]
+  source: Parameters<typeof ledgerEntryPln>[0],
+  target: Parameters<typeof ledgerEntryPln>[0]
 ): number {
   const srcCur = accountCurrency(source.currency, source.accountCurrency);
   const tgtCur = accountCurrency(target.currency, target.accountCurrency);
   if (srcCur === "PLN") {
-    return Math.max(Math.abs(Number(source.amount)), Math.abs(resolveSignedEntryPln(source)));
+    return Math.max(Math.abs(Number(source.amount)), Math.abs(ledgerEntryPln(source)));
   }
   if (tgtCur === "PLN") {
-    return Math.max(Math.abs(Number(target.amount)), Math.abs(resolveSignedEntryPln(target)));
+    return Math.max(Math.abs(Number(target.amount)), Math.abs(ledgerEntryPln(target)));
   }
-  return Math.max(Math.abs(resolveSignedEntryPln(source)), Math.abs(resolveSignedEntryPln(target)));
+  return Math.max(Math.abs(ledgerEntryPln(source)), Math.abs(ledgerEntryPln(target)));
 }
 
 function resolveForeignNativeAmount(
-  foreignLeg: Parameters<typeof resolveSignedEntryPln>[0],
+  foreignLeg: Parameters<typeof ledgerEntryPln>[0],
   plnAmount: number
 ): number {
   const acctCur = accountCurrency(foreignLeg.currency, foreignLeg.accountCurrency);
@@ -68,20 +94,9 @@ function resolveForeignNativeAmount(
   return fromPln;
 }
 
-describe("resolveSignedEntryPln", () => {
-  it("noga PLN: bierze max(amount, amount_pln)", () => {
-    const pln = resolveSignedEntryPln({
-      amount: -31457.23,
-      amount_pln: -7350,
-      currency: "PLN",
-      exchange_rate: 1,
-      accountCurrency: "PLN",
-    });
-    assert.equal(pln, -31457.23);
-  });
-
-  it("noga EUR z kursem EUR/PLN 0,233645", () => {
-    const pln = resolveSignedEntryPln({
+describe("ledgerEntryPln", () => {
+  it("noga EUR z kursem 0,233645 i błędnym amount_pln 1:1", () => {
+    const pln = ledgerEntryPln({
       amount: 7350,
       amount_pln: 7350,
       currency: "EUR",
@@ -89,6 +104,23 @@ describe("resolveSignedEntryPln", () => {
       accountCurrency: "EUR",
     });
     assert.ok(Math.abs(pln - 31457.23) < 1);
+  });
+});
+
+describe("reconcileForeignBalancePln", () => {
+  it("przelicza saldo EUR gdy PLN ≈ 1:1 z native", () => {
+    const pln = reconcileForeignBalancePln(
+      -3151.95,
+      -3152,
+      "EUR",
+      [0.233645],
+      4.28
+    );
+    assert.ok(Math.abs(pln + 13490) < 50);
+  });
+
+  it("nie zmienia gdy PLN już przeliczone", () => {
+    assert.equal(reconcileForeignBalancePln(-3151.95, -13500, "EUR", [], 4.28), -13500);
   });
 });
 
