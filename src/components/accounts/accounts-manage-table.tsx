@@ -7,7 +7,7 @@ import { Archive, CheckCircle2, EyeOff, Loader2, ArrowRight } from "lucide-react
 import type { AccountManageRow } from "@/types/database";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
 import type { AccountType } from "@/types/database";
-import { formatPln } from "@/lib/format";
+import { formatAccountBalance } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface AccountsManageTableProps {
@@ -176,7 +176,9 @@ export function AccountsManageTable({ accounts }: AccountsManageTableProps) {
                     {ACCOUNT_TYPE_LABELS[a.account_type as AccountType] ?? a.account_type}
                   </td>
                   <td className="px-4 py-3 text-muted">{a.tx_count}</td>
-                  <td className="px-4 py-3 text-right font-medium">{formatPln(a.balance)}</td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {formatAccountBalance(a.balance_native, a.currency, a.balance)}
+                  </td>
                   <td className="px-4 py-3 text-muted">{a.show_on_dashboard ? "Tak" : "Nie"}</td>
                   <td className="px-4 py-3 text-muted">
                     {a.include_in_net_worth ? "Tak" : "Nie"}

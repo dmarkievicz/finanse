@@ -6,7 +6,7 @@ import type { AccountsPageAccount } from "@/lib/queries/fetch-accounts-page";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
 import type { AccountType } from "@/types/database";
 import { AccountCardAvatar } from "@/components/accounts/account-card-avatar";
-import { formatPln } from "@/lib/format";
+import { formatAccountBalance } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface AccountCardProps {
@@ -94,7 +94,7 @@ export function AccountCard({ account }: AccountCardProps) {
             account.balance < 0 ? "text-red-600" : "text-foreground"
           )}
         >
-          {formatPln(account.balance)}
+          {formatAccountBalance(account.balance_native, account.currency, account.balance)}
         </p>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">

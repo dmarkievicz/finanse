@@ -16,10 +16,12 @@ import { fetchTotalNetWorth } from "@/lib/queries/net-worth";
 import { sortByNamePl } from "@/lib/locale-sort";
 import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
+import { fetchAccountLedgerBalances } from "@/lib/queries/account-ledger-balances";
 import { fetchAccountPhotoUrls } from "@/lib/queries/account-photos";
 
 export interface AccountRow extends AccountBalance {
   balance: number;
+  balance_native: number;
   has_card_photo?: boolean;
   photo_url?: string | null;
 }
@@ -62,9 +64,15 @@ export async function fetchAccounts(
   const settings = await fetchUserSettings(supabase);
   const mode: BalanceMode = balanceMode(settings);
 
-  const [balances, netWorth] = await Promise.all([
+  const [balances, netWorth, ledgerBalances] = await Promise.all([
     rpcAccountBalances(supabase, asOfDate, mode),
     fetchTotalNetWorth(supabase, asOfDate, mode),
+    fetchAccountLedgerBalances(
+      supabase,
+      asOfDate,
+      settings?.analysis_start_date ?? null,
+      mode
+    ),
   ]);
 
   const filtered = balances.filter((a) => !isAssetLedgerAccount(a.account_name));
@@ -80,6 +88,7 @@ export async function fetchAccounts(
     filtered.map((a) => ({
       ...a,
       balance: Number(a.balance_pln),
+      balance_native: ledgerBalances.get(a.account_id) ?? Number(a.balance_pln),
       has_card_photo: photoByAccount.get(a.account_id) ?? false,
       photo_url: photoUrls.get(a.account_id) ?? null,
     })),
@@ -138,15 +147,22 @@ export async function fetchAccountsManage(
   const settings = await fetchUserSettings(supabase);
   const mode: BalanceMode = balanceMode(settings);
 
-  const [rows, needsReviewCount] = await Promise.all([
+  const [rows, needsReviewCount, ledgerBalances] = await Promise.all([
     rpcAllAccountBalances(supabase, asOfDate, mode),
     rpcAccountsNeedsReviewCount(supabase),
+    fetchAccountLedgerBalances(
+      supabase,
+      asOfDate,
+      settings?.analysis_start_date ?? null,
+      mode
+    ),
   ]);
 
   const accounts = sortByNamePl(
     rows.map((a) => ({
       ...a,
       balance: Number(a.balance_pln),
+      balance_native: ledgerBalances.get(a.account_id) ?? Number(a.balance_pln),
       opening_balance_pln: a.opening_balance_pln != null ? Number(a.opening_balance_pln) : null,
       has_opening_balance: Boolean(a.has_opening_balance),
       history_balance_pln: Number(a.history_balance_pln ?? a.balance_pln),

@@ -11,7 +11,7 @@ import { IMPORTED_ACCOUNT_DEFAULTS } from "@/lib/import/account-defaults";
 import { rpcImportTransactionBatch, type ImportBatchItem } from "@/lib/import/batch-rpc";
 import {
   buildImportIncomeExpenseEntry,
-  buildImportTransferAmounts,
+  buildTransferLegs,
 } from "@/lib/import/signed-amounts";
 import { signedAmountPln } from "@/lib/balances/invariants";
 import { WEB_IMPORT_MAX_ROWS } from "@/lib/import/constants";
@@ -206,10 +206,13 @@ function validateRow(row: ReturnType<typeof normalizeRow>) {
 async function ensureAccounts(supabase: ImportSupabase, userId: string, names: string[]) {
   const { data: existing } = await supabase
     .from("accounts")
-    .select("id, name")
+    .select("id, name, default_currency")
     .eq("user_id", userId)
     .is("deleted_at", null);
   const map = new Map((existing ?? []).map((a) => [a.name, a.id]));
+  const currencyMap = new Map(
+    (existing ?? []).map((a) => [a.name, a.default_currency as string])
+  );
   const toCreate = names
     .filter((n) => n && !map.has(n))
     .map((name) => ({
@@ -221,11 +224,17 @@ async function ensureAccounts(supabase: ImportSupabase, userId: string, names: s
       ...IMPORTED_ACCOUNT_DEFAULTS,
     }));
   if (toCreate.length) {
-    const { data: created, error } = await supabase.from("accounts").insert(toCreate).select("id, name");
+    const { data: created, error } = await supabase
+      .from("accounts")
+      .insert(toCreate)
+      .select("id, name, default_currency");
     if (error) throw error;
-    for (const a of created ?? []) map.set(a.name, a.id);
+    for (const a of created ?? []) {
+      map.set(a.name, a.id);
+      currencyMap.set(a.name, a.default_currency as string);
+    }
   }
-  return map;
+  return { accountMap: map, currencyMap };
 }
 
 async function ensureCategories(
@@ -320,7 +329,7 @@ function resolveImportCategory(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function processBatch(supabase: ImportSupabase, userId: string, importId: string, batch: any[], accountMap: Map<string, string>, catMap: Map<string, string>, subMap: Map<string, string>, hashes: Set<string>, rules: CategorizationRule[]) {
+async function processBatch(supabase: ImportSupabase, userId: string, importId: string, batch: any[], accountMap: Map<string, string>, accountCurrencyMap: Map<string, string>, catMap: Map<string, string>, subMap: Map<string, string>, hashes: Set<string>, rules: CategorizationRule[]) {
   const stats = { imported: 0, skipped: 0, errors: 0, warnings: 0, needsReview: 0 };
   const rpcItems: ImportBatchItem[] = [];
 
@@ -382,24 +391,31 @@ async function processBatch(supabase: ImportSupabase, userId: string, importId: 
         validation.txType === "transfer" ||
         validation.txType === "exchange"
       ) {
-        const { absAmount, amountPln } = buildImportTransferAmounts(
+        const srcCur =
+          accountCurrencyMap.get(row.source_account) ?? row.currency ?? "PLN";
+        const tgtCur =
+          accountCurrencyMap.get(row.target_account) ?? row.currency ?? "PLN";
+        const legs = buildTransferLegs(
           row.amount!,
-          row.exchange_rate
+          row.currency,
+          row.exchange_rate,
+          srcCur,
+          tgtCur
         );
         entries.push({
           account_id: accountMap.get(row.source_account),
-          amount: -absAmount,
-          currency: row.currency,
-          exchange_rate: row.exchange_rate,
-          amount_pln: -amountPln,
+          amount: legs.source.amount,
+          currency: legs.source.currency,
+          exchange_rate: legs.source.exchangeRate,
+          amount_pln: legs.source.amountPln,
           sort_order: 0,
         });
         entries.push({
           account_id: accountMap.get(row.target_account),
-          amount: absAmount,
-          currency: row.currency,
-          exchange_rate: row.exchange_rate,
-          amount_pln: amountPln,
+          amount: legs.target.amount,
+          currency: legs.target.currency,
+          exchange_rate: legs.target.exchangeRate,
+          amount_pln: legs.target.amountPln,
           sort_order: 1,
         });
       } else if (validation.txType === "adjustment") {
@@ -640,7 +656,7 @@ export async function runImportFromBuffer(
 
   const hashes = await loadHashes(db, userId);
   const rules = await loadActiveCategorizationRules(supabase, userId);
-  const accountMap = await ensureAccounts(db, userId, [...accountNames]);
+  const { accountMap, currencyMap } = await ensureAccounts(db, userId, [...accountNames]);
   const { catMap, subMap } = await ensureCategories(
     db,
     userId,
@@ -668,7 +684,7 @@ export async function runImportFromBuffer(
 
   for (let i = 0; i < parsed.length; i += BATCH_SIZE) {
     const batch = parsed.slice(i, i + BATCH_SIZE);
-    const s = await processBatch(db, userId, imp.id, batch, accountMap, catMap, subMap, hashes, rules);
+    const s = await processBatch(db, userId, imp.id, batch, accountMap, currencyMap, catMap, subMap, hashes, rules);
     totals.imported += s.imported;
     totals.skipped += s.skipped;
     totals.errors += s.errors;

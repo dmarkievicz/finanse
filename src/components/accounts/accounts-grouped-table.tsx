@@ -6,7 +6,7 @@ import {
   type AccountRow,
 } from "@/lib/queries/accounts";
 import type { AccountType } from "@/types/database";
-import { formatPln } from "@/lib/format";
+import { formatAccountBalance, formatPln } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface AccountsGroupedTableProps {
@@ -85,7 +85,7 @@ export function AccountsGroupedTable({ byType, showZeroBalances = true }: Accoun
                       a.balance < 0 ? "text-red-600" : a.balance > 0 ? "text-foreground" : "text-muted"
                     )}
                   >
-                    {formatPln(a.balance)}
+                    {formatAccountBalance(a.balance_native, a.currency, a.balance)}
                   </span>
                   <Link
                     href={`/transactions?account=${a.account_id}`}

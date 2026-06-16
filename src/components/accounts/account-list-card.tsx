@@ -3,7 +3,7 @@ import type { AccountRow } from "@/lib/queries/accounts";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
 import type { AccountType } from "@/types/database";
 import { AccountCardAvatar } from "@/components/accounts/account-card-avatar";
-import { formatPln } from "@/lib/format";
+import { formatAccountBalance } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface AccountListCardProps {
@@ -58,7 +58,7 @@ export function AccountListCard({ account }: AccountListCardProps) {
             account.balance < 0 ? "text-red-600" : "text-foreground"
           )}
         >
-          {formatPln(account.balance)}
+          {formatAccountBalance(account.balance_native, account.currency, account.balance)}
         </p>
       </div>
     </Link>

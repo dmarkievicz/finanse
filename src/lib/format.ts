@@ -69,3 +69,50 @@ export function formatPlnSigned(value: number | null | undefined): string {
     maximumFractionDigits: 0,
   }).format(value);
 }
+
+export function formatCurrency(
+  value: number | null | undefined,
+  currency: string,
+  options?: { signed?: boolean; maxFractionDigits?: number }
+): string {
+  if (value == null) return "—";
+  const code = currency === "EURO" ? "EUR" : currency;
+  try {
+    return new Intl.NumberFormat("pl-PL", {
+      style: "currency",
+      currency: code,
+      signDisplay: options?.signed ? "exceptZero" : "auto",
+      maximumFractionDigits: options?.maxFractionDigits ?? (code === "PLN" ? 0 : 2),
+    }).format(value);
+  } catch {
+    return `${value.toLocaleString("pl-PL")} ${currency}`;
+  }
+}
+
+export function formatForeignWithPln(
+  nativeAmount: number,
+  currency: string,
+  plnAmount: number,
+  options?: { signed?: boolean }
+): string {
+  if (currency === "PLN") {
+    return options?.signed ? formatPlnSigned(nativeAmount) : formatPln(nativeAmount);
+  }
+  const native = formatCurrency(nativeAmount, currency, {
+    signed: options?.signed,
+    maxFractionDigits: 2,
+  });
+  const pln = formatPln(Math.abs(plnAmount));
+  return `${native} (${pln})`;
+}
+
+export function formatAccountBalance(
+  balanceNative: number,
+  currency: string,
+  balancePln: number
+): string {
+  if (currency === "PLN") {
+    return formatPln(balanceNative);
+  }
+  return formatForeignWithPln(balanceNative, currency, balancePln);
+}

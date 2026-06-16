@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAccountDetail } from "@/lib/queries/accounts";
 import { fetchAccountTransactionCount } from "@/lib/queries/transactions";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
+import { fetchAccountLedgerBalances } from "@/lib/queries/account-ledger-balances";
 import { rpcAllAccountBalances } from "@/lib/supabase/rpc";
 import { ArrowLeft } from "lucide-react";
 
@@ -27,11 +28,19 @@ export default async function AccountDetailPage({ params }: Props) {
   const mode = balanceMode(settings);
   const today = new Date().toISOString().slice(0, 10);
 
-  const [currentRows, fullRows, transactionCount] = await Promise.all([
-    rpcAllAccountBalances(supabase, today, mode),
-    rpcAllAccountBalances(supabase, today, "full"),
-    fetchAccountTransactionCount(supabase, id),
-  ]);
+  const [currentRows, fullRows, transactionCount, currentLedger, fullLedger] =
+    await Promise.all([
+      rpcAllAccountBalances(supabase, today, mode),
+      rpcAllAccountBalances(supabase, today, "full"),
+      fetchAccountTransactionCount(supabase, id),
+      fetchAccountLedgerBalances(
+        supabase,
+        today,
+        settings?.analysis_start_date ?? null,
+        mode
+      ),
+      fetchAccountLedgerBalances(supabase, today, settings?.analysis_start_date ?? null, "full"),
+    ]);
 
   const accountBalance = currentRows.find((b) => b.account_id === id);
   const historyBalance = fullRows.find((b) => b.account_id === id);
@@ -49,7 +58,9 @@ export default async function AccountDetailPage({ params }: Props) {
       <AccountDetailHero
         account={account}
         currentBalance={Number(accountBalance?.balance_pln ?? 0)}
+        currentBalanceNative={currentLedger.get(id) ?? Number(accountBalance?.balance_pln ?? 0)}
         historyBalance={Number(historyBalance?.balance_pln ?? 0)}
+        historyBalanceNative={fullLedger.get(id) ?? Number(historyBalance?.balance_pln ?? 0)}
         transactionCount={transactionCount}
       />
 

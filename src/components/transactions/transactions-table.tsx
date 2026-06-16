@@ -14,6 +14,10 @@ import {
   type TransactionFilterState,
 } from "@/lib/transactions/filter-state";
 import { formatDate, formatPln, formatPlnSigned } from "@/lib/format";
+import {
+  formatTransactionAmountCell,
+  formatTransactionPlnCell,
+} from "@/lib/transactions/format-transaction-amount";
 import { accumulateFlows } from "@/lib/transactions/cashflow-amounts";
 import { TransactionsEmptyState } from "@/components/transactions/transactions-empty-state";
 import { cn } from "@/lib/utils";
@@ -72,8 +76,7 @@ function TransactionRow({
   const Icon = cfg.icon;
   const displayAmount = t.amountPln ?? t.pendingAmountPln;
   const amountPending = t.amountPln == null && t.pendingAmountPln != null;
-  const originalAmount = t.originalAmount ?? (t.pendingAmount != null ? Math.abs(t.pendingAmount) : null);
-  const currency = t.currency ?? t.pendingCurrency ?? "PLN";
+  const currency = (t.currency ?? t.pendingCurrency ?? "PLN").toUpperCase();
   const rate = t.exchangeRate ?? t.pendingExchangeRate ?? 1;
 
   const isInflow =
@@ -84,10 +87,7 @@ function TransactionRow({
         ? displayAmount > 0
         : false);
 
-  const amountDisplay =
-    t.type === "transfer" && displayAmount != null
-      ? formatPlnSigned(displayAmount).replace("+", "")
-      : formatPlnSigned(displayAmount);
+  const amountDisplay = formatTransactionPlnCell(t);
 
   const source =
     t.sourceAccount ?? (t.pendingSourceAccount || null);
@@ -129,7 +129,7 @@ function TransactionRow({
         {t.details || "—"}
       </td>
       <td className="hidden whitespace-nowrap px-4 py-2.5 text-right tabular-nums text-muted xl:table-cell">
-        {originalAmount != null ? originalAmount.toLocaleString("pl-PL") : "—"}
+        {formatTransactionAmountCell(t)}
       </td>
       <td className="hidden px-4 py-2.5 text-muted xl:table-cell">{currency}</td>
       <td className="hidden px-4 py-2.5 text-right text-muted xl:table-cell">

@@ -3,7 +3,7 @@ import { ArrowRight, Wallet } from "lucide-react";
 import type { AccountRow } from "@/lib/queries/accounts";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
 import type { AccountType } from "@/types/database";
-import { formatPln } from "@/lib/format";
+import { formatAccountBalance } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface AccountsTableProps {
@@ -46,7 +46,7 @@ export function AccountsTable({ accounts, showZeroBalances = true }: AccountsTab
               <th className="px-4 py-3 font-medium">Typ</th>
               <th className="px-4 py-3 font-medium">Waluta</th>
               <th className="px-4 py-3 font-medium">Udział</th>
-              <th className="px-4 py-3 text-right font-medium">Saldo (PLN)</th>
+              <th className="px-4 py-3 text-right font-medium">Saldo</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -96,7 +96,7 @@ export function AccountsTable({ accounts, showZeroBalances = true }: AccountsTab
                     a.balance < 0 ? "text-red-600" : a.balance > 0 ? "text-foreground" : "text-muted"
                   )}
                 >
-                  {formatPln(a.balance)}
+                  {formatAccountBalance(a.balance_native, a.currency, a.balance)}
                 </td>
                 <td className="px-4 py-3">
                   <Link

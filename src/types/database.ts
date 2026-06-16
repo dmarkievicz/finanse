@@ -68,6 +68,7 @@ export interface AccountManageRow extends AccountBalance {
   has_opening_balance: boolean;
   history_balance_pln: number;
   balance: number;
+  balance_native: number;
 }
 
 export interface UserSettingsRow {

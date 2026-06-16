@@ -2,27 +2,47 @@ import type { Account } from "@/types/database";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/queries/accounts";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
 import { AccountCardAvatar } from "@/components/accounts/account-card-avatar";
-import { formatPln } from "@/lib/format";
+import { formatAccountBalance } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface AccountDetailHeroProps {
   account: Account;
   currentBalance: number;
+  currentBalanceNative: number;
   historyBalance: number;
+  historyBalanceNative: number;
   transactionCount: number;
 }
 
 export function AccountDetailHero({
   account,
   currentBalance,
+  currentBalanceNative,
   historyBalance,
+  historyBalanceNative,
   transactionCount,
 }: AccountDetailHeroProps) {
   const hasPhoto = Boolean(parseAccountMetadata(account.metadata).card_photo_storage_path);
 
   const stats = [
-    { label: "Saldo bieżące", value: formatPln(currentBalance), muted: false },
-    { label: "Pełna historia importu", value: formatPln(historyBalance), muted: true },
+    {
+      label: "Saldo bieżące",
+      value: formatAccountBalance(
+        currentBalanceNative,
+        account.default_currency,
+        currentBalance
+      ),
+      muted: false,
+    },
+    {
+      label: "Pełna historia importu",
+      value: formatAccountBalance(
+        historyBalanceNative,
+        account.default_currency,
+        historyBalance
+      ),
+      muted: true,
+    },
     { label: "Transakcje", value: transactionCount.toLocaleString("pl-PL"), muted: false },
   ];
 
