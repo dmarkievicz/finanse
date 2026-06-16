@@ -17,9 +17,9 @@ interface BudgetBreakdownTableProps {
   className?: string;
 }
 
-const NUM = "px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap";
+const NUM = "px-3 py-2 text-right align-middle tabular-nums whitespace-nowrap";
 const TH_NUM =
-  "px-3 py-2.5 text-right align-middle text-[11px] font-medium uppercase tracking-wide text-muted whitespace-nowrap";
+  "px-3 py-2 text-right align-middle text-[11px] font-medium uppercase tracking-wide text-muted whitespace-nowrap";
 
 function BreakdownColGroup() {
   return (
@@ -60,7 +60,7 @@ export function BudgetBreakdownTable({
             <BreakdownColGroup />
             <thead>
               <tr className="border-b border-border bg-slate-50/90">
-                <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-muted">
+                <th className="px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-muted">
                   Kategoria
                 </th>
                 <th className={TH_NUM}>Wykonanie</th>
@@ -134,7 +134,7 @@ function SectionLabelRow({
 
   return (
     <tr className={cn("border-y text-xs font-semibold uppercase tracking-wide", styles)}>
-      <td colSpan={6} className="px-4 py-2">
+      <td colSpan={6} className="px-4 py-1.5">
         {label}
       </td>
     </tr>
@@ -160,21 +160,21 @@ function TotalsRow({
 }) {
   return (
     <tr className="bg-slate-50/90 font-semibold text-slate-900">
-      <td className="px-4 py-3">Razem</td>
-      <td className={cn(NUM, "py-3")}>{formatPln(totals.tracked)}</td>
-      <td className={cn(NUM, "py-3 text-muted-foreground")}>
+      <td className="px-4 py-2">Razem</td>
+      <td className={cn(NUM)}>{formatPln(totals.tracked)}</td>
+      <td className={cn(NUM, "text-muted-foreground")}>
         {totals.budget != null ? formatPln(totals.budget) : "—"}
       </td>
-      <td className={cn(NUM, "py-3 text-muted-foreground")}>
+      <td className={cn(NUM, "text-muted-foreground")}>
         {totals.completionPct != null ? formatPercent(totals.completionPct) : "—"}
       </td>
-      <td className={cn(NUM, "py-3 text-muted-foreground")}>
+      <td className={cn(NUM, "text-muted-foreground")}>
         {totals.remaining != null ? formatPln(totals.remaining) : "—"}
       </td>
       <td
         className={cn(
           NUM,
-          "py-3 pr-4",
+          "pr-4",
           totals.excess > 0
             ? isExpense
               ? "text-rose-600"
@@ -201,17 +201,10 @@ function BreakdownRow({
 
   return (
     <tr className="transition-colors hover:bg-slate-50/70">
-      <td className="px-4 py-2.5 align-middle">
+      <td className="px-4 py-2 align-middle">
         <Link href={href} className="font-medium text-slate-800 hover:text-primary hover:underline">
           {row.categoryName}
         </Link>
-        {row.categoryId !== "__uncategorized__" && row.budget == null && row.tracked > 0 && (
-          <div>
-            <Link href="/budgets" className="text-[11px] text-muted hover:text-foreground">
-              Ustaw budżet
-            </Link>
-          </div>
-        )}
       </td>
       <td className={cn(NUM, "text-slate-800")}>{formatPln(row.tracked)}</td>
       <td className={cn(NUM, "text-muted-foreground")}>
