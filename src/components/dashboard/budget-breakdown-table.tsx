@@ -129,8 +129,8 @@ function SectionLabelRow({
 }) {
   const styles =
     accent === "income"
-      ? "bg-emerald-50/90 text-emerald-800 border-emerald-100"
-      : "bg-rose-50/90 text-rose-800 border-rose-100";
+      ? "border-emerald-800 bg-emerald-700 text-white"
+      : "border-rose-800 bg-rose-700 text-white";
 
   return (
     <tr className={cn("border-y text-xs font-semibold uppercase tracking-wide", styles)}>
