@@ -129,7 +129,7 @@ function SectionLabelRow({
 }) {
   const styles =
     accent === "income"
-      ? "border-emerald-800 bg-emerald-700 text-white"
+      ? "border-emerald-500 bg-emerald-500 text-white"
       : "border-rose-500 bg-rose-500 text-white";
 
   return (
