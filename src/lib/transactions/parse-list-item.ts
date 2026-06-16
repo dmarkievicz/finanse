@@ -129,7 +129,7 @@ export function parseEntryDetails(entries: EntryRow[]) {
   let originalAmount = Math.abs(Number(primary.amount));
 
   if (currency !== "PLN") {
-    const derivedPln = plnFromForeign(originalAmount, rate);
+    const derivedPln = plnFromForeign(originalAmount, currency, rate);
     if (originalAmount <= 0 || Math.abs(derivedPln - amountPln) > 0.01) {
       originalAmount = foreignFromPln(amountPln, currency, rate);
     } else if (originalAmount > amountPln * 0.9) {

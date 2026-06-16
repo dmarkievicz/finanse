@@ -1,4 +1,5 @@
 import { signedAmountPln } from "@/lib/balances/invariants";
+import { convertFromPln, convertToPlnAbs } from "@/lib/fx/convert";
 
 /**
  * Kwoty w Excelu mogą być ze znakiem:
@@ -66,14 +67,13 @@ export function buildTransferLegs(
   }
 
   const plnFromExcel =
-    excelCur === "PLN" ? absExcel : Math.round(absExcel * rate * 100) / 100;
-  const foreignFromPln = (pln: number, cur: string) =>
-    cur === "PLN" ? pln : Math.round((pln / rate) * 100) / 100;
+    excelCur === "PLN"
+      ? absExcel
+      : convertToPlnAbs(absExcel, excelCur, rate);
 
   if (srcCur === "PLN" && tgtCur !== "PLN") {
     const pln = plnFromExcel;
-    const foreign =
-      excelCur === tgtCur ? absExcel : foreignFromPln(pln, tgtCur);
+    const foreign = excelCur === tgtCur ? absExcel : convertFromPln(pln, tgtCur, rate);
     return {
       source: { amount: -pln, currency: "PLN", exchangeRate: 1, amountPln: -pln },
       target: { amount: foreign, currency: tgtCur, exchangeRate: rate, amountPln: pln },
@@ -82,8 +82,7 @@ export function buildTransferLegs(
 
   if (tgtCur === "PLN" && srcCur !== "PLN") {
     const pln = plnFromExcel;
-    const foreign =
-      excelCur === srcCur ? absExcel : foreignFromPln(pln, srcCur);
+    const foreign = excelCur === srcCur ? absExcel : convertFromPln(pln, srcCur, rate);
     return {
       source: { amount: -foreign, currency: srcCur, exchangeRate: rate, amountPln: -pln },
       target: { amount: pln, currency: "PLN", exchangeRate: 1, amountPln: pln },

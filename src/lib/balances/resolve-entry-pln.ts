@@ -1,29 +1,19 @@
-/** Wspólna logika PLN — koryguje błędne amount_pln (np. 1:1 z kwotą obcą). */
+/** Wspólna logika PLN — koryguje błędne amount_pln i amount w historycznych wpisach. */
 
-export function normalizeCurrency(currency: string | null | undefined): string {
-  if (!currency) return "PLN";
-  const c = currency.trim().toUpperCase();
-  if (c === "EURO") return "EUR";
-  return c;
-}
+import {
+  convertFromPln,
+  convertToPln,
+  convertToPlnAbs,
+  normalizeCurrency,
+} from "@/lib/fx/convert";
+
+export { normalizeCurrency };
 
 export function accountCurrency(
   entryCurrency: string,
   accountDefaultCurrency?: string | null
 ): string {
   return normalizeCurrency(accountDefaultCurrency ?? entryCurrency);
-}
-
-export function foreignFromPln(pln: number, currency: string, rate: number): number {
-  const cur = normalizeCurrency(currency);
-  if (cur === "PLN") return pln;
-  const r = rate > 0 ? rate : 1;
-  return Math.round((pln / r) * 100) / 100;
-}
-
-export function plnFromForeign(amount: number, rate: number): number {
-  const r = rate > 0 ? rate : 1;
-  return Math.round(Math.abs(amount) * r * 100) / 100;
 }
 
 export interface EntryPlnInput {
@@ -51,11 +41,17 @@ export function resolveSignedEntryPln(entry: EntryPlnInput): number {
     return sign * Math.max(absPln, absAmount);
   }
 
-  const fromRate = plnFromForeign(absAmount, rate);
-  if (absPln <= absAmount * 1.05) {
-    return sign * Math.max(fromRate, absPln);
+  const plnViaAmount = convertToPlnAbs(amount, acctCur, rate);
+  const plnViaStored = absPln;
+
+  if (plnViaAmount > plnViaStored * 10 && plnViaStored > 0) {
+    return sign * plnViaStored;
   }
-  return sign * Math.max(absPln, fromRate);
+
+  if (plnViaStored <= absAmount * 1.05) {
+    return sign * Math.max(plnViaAmount, plnViaStored);
+  }
+  return sign * Math.max(plnViaStored, plnViaAmount);
 }
 
 /** Kwota PLN bez znaku (do wyświetlania transferów). */
@@ -91,13 +87,23 @@ export function resolveForeignNativeAmount(
 ): number {
   const acctCur = accountCurrency(foreignLeg.currency, foreignLeg.accountCurrency);
   const rate = Number(foreignLeg.exchange_rate) > 0 ? Number(foreignLeg.exchange_rate) : 1;
-  const native = Math.abs(Number(foreignLeg.amount));
+  const stored = Math.abs(Number(foreignLeg.amount));
+  const fromPln = convertFromPln(plnAmount, acctCur, rate);
 
-  if (native <= 0 || Math.abs(native - plnAmount) < 0.01) {
-    return foreignFromPln(plnAmount, acctCur, rate);
+  if (stored > 0) {
+    const impliedPln = convertToPlnAbs(stored, acctCur, rate);
+    if (Math.abs(impliedPln - plnAmount) <= Math.max(1, plnAmount * 0.01)) {
+      return stored;
+    }
   }
-  if (native > plnAmount * 0.9) {
-    return foreignFromPln(plnAmount, acctCur, rate);
-  }
-  return native;
+  return fromPln;
+}
+
+// Zachowanie kompatybilności w parse-list-item
+export function foreignFromPln(pln: number, currency: string, rate: number): number {
+  return convertFromPln(pln, currency, rate);
+}
+
+export function plnFromForeign(amount: number, currency: string, rate: number): number {
+  return convertToPlnAbs(amount, currency, rate);
 }

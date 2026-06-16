@@ -18,7 +18,7 @@ import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
 import { fetchAccountLedgerBalances } from "@/lib/queries/account-ledger-balances";
 import { fetchAccountPhotoUrls } from "@/lib/queries/account-photos";
-import { normalizeCurrency } from "@/lib/balances/resolve-entry-pln";
+import { normalizeCurrency } from "@/lib/fx/convert";
 
 export interface AccountRow extends AccountBalance {
   balance: number;

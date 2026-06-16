@@ -52,8 +52,12 @@ function buildTransferLegs(
 
   const plnFromExcel =
     excelCur === "PLN" ? absExcel : Math.round(absExcel * rate * 100) / 100;
-  const foreignFromPln = (pln: number, cur: string) =>
-    cur === "PLN" ? pln : Math.round((pln / rate) * 100) / 100;
+  const foreignFromPln = (pln: number, cur: string) => {
+    if (normalizeCur(cur) === "PLN") return pln;
+    return rate < 1
+      ? Math.round(pln * rate * 100) / 100
+      : Math.round((pln / rate) * 100) / 100;
+  };
 
   if (srcCur === "PLN" && tgtCur !== "PLN") {
     const pln = plnFromExcel;
@@ -121,12 +125,18 @@ describe("buildImportTransferAmounts", () => {
 });
 
 describe("buildTransferLegs", () => {
-  it("PLN → EUR: źródło w PLN, cel w EUR", () => {
+  it("PLN → EUR po kursie NBP (PLN za EUR)", () => {
     const legs = buildTransferLegs(31457.23, "PLN", 4.28, "PLN", "EUR");
     assert.equal(legs.source.currency, "PLN");
     assert.equal(legs.source.amount, -31457.23);
     assert.equal(legs.source.amountPln, -31457.23);
     assert.equal(legs.target.currency, "EUR");
+    assert.ok(Math.abs(legs.target.amount - 7349.82) < 0.1);
+    assert.equal(legs.target.amountPln, 31457.23);
+  });
+
+  it("PLN → EUR po kursie Excel (EUR za PLN)", () => {
+    const legs = buildTransferLegs(31457.23, "PLN", 0.233645, "PLN", "EUR");
     assert.ok(Math.abs(legs.target.amount - 7349.82) < 0.1);
     assert.equal(legs.target.amountPln, 31457.23);
   });
