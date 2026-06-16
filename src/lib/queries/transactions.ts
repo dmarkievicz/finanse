@@ -89,14 +89,14 @@ type TxRow = {
     exchange_rate: number;
     account_id: string;
     sort_order?: number;
-    accounts: { name: string } | null;
+    accounts: { name: string; default_currency: string } | null;
   }[];
 };
 
 const TX_SELECT = `id, date, type, status, details, import_id,
   categories (name),
   subcategories (name),
-  transaction_entries (amount, amount_pln, currency, exchange_rate, account_id, sort_order, accounts (name))`;
+  transaction_entries (amount, amount_pln, currency, exchange_rate, account_id, sort_order, accounts (name, default_currency))`;
 
 async function mapRowsToItems(
   supabase: ServerSupabaseClient,
@@ -324,6 +324,7 @@ export async function fetchLookupForFilters(supabase: ServerSupabaseClient) {
       .from("accounts")
       .select("id, name, default_currency, lifecycle_status")
       .is("deleted_at", null)
+      .eq("lifecycle_status", "active")
       .order("name"),
     supabase
       .from("categories")

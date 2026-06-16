@@ -18,6 +18,7 @@ import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
 import { fetchAccountLedgerBalances } from "@/lib/queries/account-ledger-balances";
 import { fetchAccountPhotoUrls } from "@/lib/queries/account-photos";
+import { normalizeCurrency } from "@/lib/balances/resolve-entry-pln";
 
 export interface AccountRow extends AccountBalance {
   balance: number;
@@ -85,13 +86,20 @@ export async function fetchAccounts(
   const photoByAccount = photoFlags;
 
   const accounts: AccountRow[] = sortByNamePl(
-    filtered.map((a) => ({
-      ...a,
-      balance: Number(a.balance_pln),
-      balance_native: ledgerBalances.get(a.account_id) ?? Number(a.balance_pln),
-      has_card_photo: photoByAccount.get(a.account_id) ?? false,
-      photo_url: photoUrls.get(a.account_id) ?? null,
-    })),
+    filtered.map((a) => {
+      const native =
+        ledgerBalances.native.get(a.account_id) ?? Number(a.balance_pln);
+      const pln =
+        ledgerBalances.pln.get(a.account_id) ?? Number(a.balance_pln);
+      return {
+        ...a,
+        balance: pln,
+        balance_native:
+          normalizeCurrency(a.currency) === "PLN" ? pln : native,
+        has_card_photo: photoByAccount.get(a.account_id) ?? false,
+        photo_url: photoUrls.get(a.account_id) ?? null,
+      };
+    }),
     (a) => a.account_name
   );
 
@@ -159,14 +167,21 @@ export async function fetchAccountsManage(
   ]);
 
   const accounts = sortByNamePl(
-    rows.map((a) => ({
-      ...a,
-      balance: Number(a.balance_pln),
-      balance_native: ledgerBalances.get(a.account_id) ?? Number(a.balance_pln),
-      opening_balance_pln: a.opening_balance_pln != null ? Number(a.opening_balance_pln) : null,
-      has_opening_balance: Boolean(a.has_opening_balance),
-      history_balance_pln: Number(a.history_balance_pln ?? a.balance_pln),
-    })),
+    rows.map((a) => {
+      const native =
+        ledgerBalances.native.get(a.account_id) ?? Number(a.balance_pln);
+      const pln =
+        ledgerBalances.pln.get(a.account_id) ?? Number(a.balance_pln);
+      return {
+        ...a,
+        balance: pln,
+        balance_native:
+          normalizeCurrency(a.currency) === "PLN" ? pln : native,
+        opening_balance_pln: a.opening_balance_pln != null ? Number(a.opening_balance_pln) : null,
+        has_opening_balance: Boolean(a.has_opening_balance),
+        history_balance_pln: Number(a.history_balance_pln ?? a.balance_pln),
+      };
+    }),
     (a) => a.account_name
   );
 

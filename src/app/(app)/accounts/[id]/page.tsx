@@ -9,6 +9,7 @@ import { fetchAccountTransactionCount } from "@/lib/queries/transactions";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
 import { fetchAccountLedgerBalances } from "@/lib/queries/account-ledger-balances";
 import { rpcAllAccountBalances } from "@/lib/supabase/rpc";
+import { normalizeCurrency } from "@/lib/balances/resolve-entry-pln";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,17 @@ export default async function AccountDetailPage({ params }: Props) {
 
   const accountBalance = currentRows.find((b) => b.account_id === id);
   const historyBalance = fullRows.find((b) => b.account_id === id);
+  const isPln = normalizeCurrency(account.default_currency) === "PLN";
+  const currentPln =
+    currentLedger.pln.get(id) ?? Number(accountBalance?.balance_pln ?? 0);
+  const currentNative = isPln
+    ? currentPln
+    : (currentLedger.native.get(id) ?? currentPln);
+  const historyPln =
+    fullLedger.pln.get(id) ?? Number(historyBalance?.balance_pln ?? 0);
+  const historyNative = isPln
+    ? historyPln
+    : (fullLedger.native.get(id) ?? historyPln);
 
   return (
     <div>
@@ -57,10 +69,10 @@ export default async function AccountDetailPage({ params }: Props) {
 
       <AccountDetailHero
         account={account}
-        currentBalance={Number(accountBalance?.balance_pln ?? 0)}
-        currentBalanceNative={currentLedger.get(id) ?? Number(accountBalance?.balance_pln ?? 0)}
-        historyBalance={Number(historyBalance?.balance_pln ?? 0)}
-        historyBalanceNative={fullLedger.get(id) ?? Number(historyBalance?.balance_pln ?? 0)}
+        currentBalance={currentPln}
+        currentBalanceNative={currentNative}
+        historyBalance={historyPln}
+        historyBalanceNative={historyNative}
         transactionCount={transactionCount}
       />
 

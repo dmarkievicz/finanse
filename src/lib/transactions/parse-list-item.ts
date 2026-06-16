@@ -1,6 +1,15 @@
 import type { TransactionStatus, TransactionType } from "@/types/database";
 import type { TransactionListItem } from "@/lib/queries/transactions";
 import {
+  accountCurrency,
+  foreignFromPln,
+  normalizeCurrency,
+  plnFromForeign,
+  resolveForeignNativeAmount,
+  resolveSignedEntryPln,
+  resolveTransferPlnAmount,
+} from "@/lib/balances/resolve-entry-pln";
+import {
   formatPendingAccountLabel,
   hintFromImportRaw,
 } from "@/lib/import/parse-raw-row";
@@ -12,28 +21,27 @@ export interface EntryRow {
   exchange_rate: number;
   account_id: string;
   sort_order?: number;
-  accounts: { name: string } | null;
+  accounts: { name: string; default_currency?: string } | null;
 }
 
-function normalizeCurrency(currency: string | null | undefined): string {
-  if (!currency) return "PLN";
-  const c = currency.trim().toUpperCase();
-  if (c === "EURO") return "EUR";
-  return c;
+function entryInput(entry: EntryRow) {
+  return {
+    amount: Number(entry.amount),
+    amount_pln: Number(entry.amount_pln),
+    currency: entry.currency,
+    exchange_rate: Number(entry.exchange_rate),
+    accountCurrency: entry.accounts?.default_currency,
+  };
 }
 
-function plnEquivalent(amount: number, currency: string, rate: number): number {
-  const cur = normalizeCurrency(currency);
-  const abs = Math.abs(amount);
-  if (cur === "PLN") return abs;
-  return Math.round(abs * (rate > 0 ? rate : 1) * 100) / 100;
-}
-
-function foreignFromPln(pln: number, currency: string, rate: number): number {
-  const cur = normalizeCurrency(currency);
-  if (cur === "PLN") return pln;
-  const r = rate > 0 ? rate : 1;
-  return Math.round((pln / r) * 100) / 100;
+function findForeignLeg(source: EntryRow, target: EntryRow): EntryRow | null {
+  const srcCur = accountCurrency(source.currency, source.accounts?.default_currency);
+  const tgtCur = accountCurrency(target.currency, target.accounts?.default_currency);
+  if (srcCur !== "PLN") return source;
+  if (tgtCur !== "PLN") return target;
+  return (
+    [source, target].find((e) => normalizeCurrency(e.currency) !== "PLN") ?? null
+  );
 }
 
 export function parseEntryDetails(entries: EntryRow[]) {
@@ -59,20 +67,25 @@ export function parseEntryDetails(entries: EntryRow[]) {
   const primary = source ?? target ?? sorted[0];
 
   if (source && target) {
-    const amountPln = Math.max(
-      Math.abs(Number(source.amount_pln)),
-      Math.abs(Number(target.amount_pln))
-    );
-    const foreignLeg = [source, target].find((e) => normalizeCurrency(e.currency) !== "PLN");
-    const plnLeg = [source, target].find((e) => normalizeCurrency(e.currency) === "PLN");
+    const amountPln = resolveTransferPlnAmount(entryInput(source), entryInput(target));
+    const foreignLeg = findForeignLeg(source, target);
+    const plnLeg =
+      accountCurrency(source.currency, source.accounts?.default_currency) === "PLN"
+        ? source
+        : accountCurrency(target.currency, target.accounts?.default_currency) === "PLN"
+          ? target
+          : [source, target].find((e) => normalizeCurrency(e.currency) === "PLN");
 
-    if (foreignLeg && plnLeg && amountPln > 0) {
-      const foreignCurrency = normalizeCurrency(foreignLeg.currency);
-      const rate = Number(foreignLeg.exchange_rate) || Number(plnLeg.exchange_rate) || 1;
-      let nativeAmount = Math.abs(Number(foreignLeg.amount));
-      if (nativeAmount <= 0 || Math.abs(nativeAmount - amountPln) < 0.01) {
-        nativeAmount = foreignFromPln(amountPln, foreignCurrency, rate);
-      }
+    if (foreignLeg && amountPln > 0) {
+      const foreignCurrency = accountCurrency(
+        foreignLeg.currency,
+        foreignLeg.accounts?.default_currency
+      );
+      const rate =
+        Number(foreignLeg.exchange_rate) ||
+        Number(plnLeg?.exchange_rate) ||
+        1;
+      const nativeAmount = resolveForeignNativeAmount(entryInput(foreignLeg), amountPln);
 
       return {
         sourceAccount: source.accounts?.name ?? null,
@@ -85,10 +98,15 @@ export function parseEntryDetails(entries: EntryRow[]) {
       };
     }
 
-    const currency = normalizeCurrency(primary.currency);
+    const currency = accountCurrency(
+      primary.currency,
+      primary.accounts?.default_currency
+    );
     const rate = Number(primary.exchange_rate) || 1;
     let originalAmount = Math.abs(Number(primary.amount));
     if (currency !== "PLN" && (originalAmount <= 0 || Math.abs(originalAmount - amountPln) < 0.01)) {
+      originalAmount = foreignFromPln(amountPln, currency, rate);
+    } else if (currency !== "PLN" && originalAmount > amountPln * 0.9) {
       originalAmount = foreignFromPln(amountPln, currency, rate);
     }
 
@@ -103,13 +121,18 @@ export function parseEntryDetails(entries: EntryRow[]) {
     };
   }
 
-  const amountPln = Math.abs(Number(primary.amount_pln));
-  const currency = normalizeCurrency(primary.currency);
+  const input = entryInput(primary);
+  const signedPln = resolveSignedEntryPln(input);
+  const amountPln = Math.abs(signedPln);
+  const currency = accountCurrency(primary.currency, primary.accounts?.default_currency);
   const rate = Number(primary.exchange_rate) || 1;
   let originalAmount = Math.abs(Number(primary.amount));
+
   if (currency !== "PLN") {
-    const derivedPln = plnEquivalent(originalAmount, currency, rate);
+    const derivedPln = plnFromForeign(originalAmount, rate);
     if (originalAmount <= 0 || Math.abs(derivedPln - amountPln) > 0.01) {
+      originalAmount = foreignFromPln(amountPln, currency, rate);
+    } else if (originalAmount > amountPln * 0.9) {
       originalAmount = foreignFromPln(amountPln, currency, rate);
     }
   }
