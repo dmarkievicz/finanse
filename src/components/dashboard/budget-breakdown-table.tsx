@@ -18,6 +18,7 @@ interface BudgetBreakdownTableProps {
 }
 
 const NUM = "px-3 py-2 text-right align-middle tabular-nums whitespace-nowrap";
+const ROW_NUM = "px-3 py-1.5 text-right align-middle tabular-nums whitespace-nowrap text-[13px]";
 const TH_NUM =
   "px-3 py-2 text-right align-middle text-[11px] font-medium uppercase tracking-wide text-muted whitespace-nowrap";
 
@@ -201,18 +202,18 @@ function BreakdownRow({
 
   return (
     <tr className="transition-colors hover:bg-slate-50/70">
-      <td className="px-4 py-2 align-middle">
+      <td className="py-1.5 pl-6 pr-3 align-middle text-[13px]">
         <Link href={href} className="font-medium text-slate-800 hover:text-primary hover:underline">
           {row.categoryName}
         </Link>
       </td>
-      <td className={cn(NUM, "text-slate-800")}>{formatPln(row.tracked)}</td>
-      <td className={cn(NUM, "text-muted-foreground")}>
+      <td className={cn(ROW_NUM, "text-slate-800")}>{formatPln(row.tracked)}</td>
+      <td className={cn(ROW_NUM, "text-muted-foreground")}>
         {row.budget != null ? formatPln(row.budget) : "—"}
       </td>
       <td
         className={cn(
-          NUM,
+          ROW_NUM,
           status === "over" && "bg-rose-50 text-rose-700",
           status === "warn" && "bg-amber-50 text-amber-800",
           status === "ok" && "text-emerald-700",
@@ -221,12 +222,12 @@ function BreakdownRow({
       >
         {row.completionPct != null ? formatPercent(row.completionPct) : "—"}
       </td>
-      <td className={cn(NUM, "text-muted-foreground")}>
+      <td className={cn(ROW_NUM, "text-muted-foreground")}>
         {row.remaining != null ? formatPln(row.remaining) : "—"}
       </td>
       <td
         className={cn(
-          NUM,
+          ROW_NUM,
           "pr-4",
           row.excess > 0
             ? isExpense
