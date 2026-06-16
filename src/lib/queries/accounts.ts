@@ -12,14 +12,22 @@ import {
   type BalanceMode,
 } from "@/lib/supabase/rpc";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
-import { fetchTotalNetWorth, fetchInstrumentsMarketValue } from "@/lib/queries/net-worth";
+import { fetchInstrumentsMarketValue } from "@/lib/queries/net-worth";
 import { fetchPortfoliosMarketValue } from "@/lib/queries/investment-portfolios";
 import { sortByNamePl } from "@/lib/locale-sort";
 import { isAssetLedgerAccount } from "@/lib/accounts/classification";
 import { parseAccountMetadata } from "@/lib/accounts/account-metadata";
-import { fetchAccountLedgerBalances } from "@/lib/queries/account-ledger-balances";
+import {
+  fetchAccountLedgerBalances,
+  resolveAccountNativeBalance,
+} from "@/lib/queries/account-ledger-balances";
 import { fetchAccountPhotoUrls } from "@/lib/queries/account-photos";
+import { valueAccountBalancePln } from "@/lib/accounts/value-account-balance";
 import { normalizeCurrency } from "@/lib/fx/convert";
+import {
+  ensureValuationRates,
+  fetchValuationRatesMap,
+} from "@/lib/fx/store-rates";
 
 export interface AccountRow extends AccountBalance {
   balance: number;
@@ -78,6 +86,13 @@ export async function fetchAccounts(
     fetchPortfoliosMarketValue(supabase),
   ]);
 
+  await ensureValuationRates(supabase, asOfDate);
+  const valuationRates = await fetchValuationRatesMap(
+    supabase,
+    asOfDate,
+    balances.map((a) => a.currency)
+  );
+
   const filtered = balances.filter((a) => !isAssetLedgerAccount(a.account_name));
   const accountIds = filtered.map((a) => a.account_id);
   const photoFlags = await fetchAccountCardPhotoFlags(supabase, accountIds);
@@ -89,15 +104,19 @@ export async function fetchAccounts(
 
   const accounts: AccountRow[] = sortByNamePl(
     filtered.map((a) => {
-      const native =
-        ledgerBalances.native.get(a.account_id) ?? Number(a.balance_pln);
-      const pln =
-        ledgerBalances.pln.get(a.account_id) ?? Number(a.balance_pln);
+      const cur = normalizeCurrency(a.currency);
+      const rpcPln = Number(a.balance_pln);
+      const native = resolveAccountNativeBalance(
+        a.account_id,
+        cur,
+        ledgerBalances.native,
+        rpcPln
+      );
+      const pln = valueAccountBalancePln(native, cur, valuationRates);
       return {
         ...a,
         balance: pln,
-        balance_native:
-          normalizeCurrency(a.currency) === "PLN" ? pln : native,
+        balance_native: cur === "PLN" ? pln : native,
         has_card_photo: photoByAccount.get(a.account_id) ?? false,
         photo_url: photoUrls.get(a.account_id) ?? null,
       };
@@ -171,17 +190,28 @@ export async function fetchAccountsManage(
     ),
   ]);
 
+  await ensureValuationRates(supabase, asOfDate);
+  const valuationRates = await fetchValuationRatesMap(
+    supabase,
+    asOfDate,
+    rows.map((a) => a.currency)
+  );
+
   const accounts = sortByNamePl(
     rows.map((a) => {
-      const native =
-        ledgerBalances.native.get(a.account_id) ?? Number(a.balance_pln);
-      const pln =
-        ledgerBalances.pln.get(a.account_id) ?? Number(a.balance_pln);
+      const cur = normalizeCurrency(a.currency);
+      const rpcPln = Number(a.balance_pln);
+      const native = resolveAccountNativeBalance(
+        a.account_id,
+        cur,
+        ledgerBalances.native,
+        rpcPln
+      );
+      const pln = valueAccountBalancePln(native, cur, valuationRates);
       return {
         ...a,
         balance: pln,
-        balance_native:
-          normalizeCurrency(a.currency) === "PLN" ? pln : native,
+        balance_native: cur === "PLN" ? pln : native,
         opening_balance_pln: a.opening_balance_pln != null ? Number(a.opening_balance_pln) : null,
         has_opening_balance: Boolean(a.has_opening_balance),
         history_balance_pln: Number(a.history_balance_pln ?? a.balance_pln),

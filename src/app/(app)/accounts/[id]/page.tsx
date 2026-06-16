@@ -7,9 +7,14 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAccountDetail } from "@/lib/queries/accounts";
 import { fetchAccountTransactionCount } from "@/lib/queries/transactions";
 import { balanceMode, fetchUserSettings } from "@/lib/queries/settings";
-import { fetchAccountLedgerBalances } from "@/lib/queries/account-ledger-balances";
+import { fetchAccountLedgerBalances, resolveAccountNativeBalance } from "@/lib/queries/account-ledger-balances";
 import { rpcAllAccountBalances } from "@/lib/supabase/rpc";
 import { normalizeCurrency } from "@/lib/fx/convert";
+import { valueAccountBalancePln } from "@/lib/accounts/value-account-balance";
+import {
+  ensureValuationRates,
+  fetchValuationRatesMap,
+} from "@/lib/fx/store-rates";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -45,17 +50,31 @@ export default async function AccountDetailPage({ params }: Props) {
 
   const accountBalance = currentRows.find((b) => b.account_id === id);
   const historyBalance = fullRows.find((b) => b.account_id === id);
-  const isPln = normalizeCurrency(account.default_currency) === "PLN";
-  const currentPln =
-    currentLedger.pln.get(id) ?? Number(accountBalance?.balance_pln ?? 0);
-  const currentNative = isPln
-    ? currentPln
-    : (currentLedger.native.get(id) ?? currentPln);
-  const historyPln =
-    fullLedger.pln.get(id) ?? Number(historyBalance?.balance_pln ?? 0);
-  const historyNative = isPln
-    ? historyPln
-    : (fullLedger.native.get(id) ?? historyPln);
+  const cur = normalizeCurrency(account.default_currency);
+  const isPln = cur === "PLN";
+
+  await ensureValuationRates(supabase, today);
+  const valuationRates = await fetchValuationRatesMap(supabase, today, [cur]);
+
+  const currentNative = resolveAccountNativeBalance(
+    id,
+    cur,
+    currentLedger.native,
+    Number(accountBalance?.balance_pln ?? 0)
+  );
+  const currentPln = isPln
+    ? currentNative
+    : valueAccountBalancePln(currentNative, cur, valuationRates);
+
+  const historyNative = resolveAccountNativeBalance(
+    id,
+    cur,
+    fullLedger.native,
+    Number(historyBalance?.balance_pln ?? 0)
+  );
+  const historyPln = isPln
+    ? historyNative
+    : valueAccountBalancePln(historyNative, cur, valuationRates);
 
   return (
     <div>

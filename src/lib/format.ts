@@ -102,7 +102,10 @@ export function formatForeignWithPln(
     signed: options?.signed,
     maxFractionDigits: 2,
   });
-  const pln = formatPln(Math.abs(plnAmount));
+  const pln =
+    nativeAmount < 0
+      ? formatPlnSigned(plnAmount)
+      : formatPln(Math.abs(plnAmount));
   return `${native} (${pln})`;
 }
 

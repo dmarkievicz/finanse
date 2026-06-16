@@ -1,6 +1,6 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
-import { FX_CURRENCIES, fetchNbpHistoricalRate, fetchNbpRatesForDate } from "@/lib/fx/nbp";
 import { normalizeCurrency } from "@/lib/fx/convert";
+import { FX_CURRENCIES, fetchNbpHistoricalRate, fetchNbpRatesForDate } from "@/lib/fx/nbp";
 
 export async function syncNbpExchangeRates(
   supabase: ServerSupabaseClient,
@@ -49,13 +49,15 @@ export async function lookupExchangeRate(
   currency: string,
   date: string
 ): Promise<{ rate: number; source: string; date: string } | null> {
-  if (currency === "PLN") return { rate: 1, source: "pln", date };
+  const code = normalizeCurrency(currency);
+  if (code === "PLN") return { rate: 1, source: "pln", date };
 
   const { data, error } = await supabase
     .from("exchange_rates")
     .select("rate, source, date")
-    .eq("from_currency", currency)
+    .eq("from_currency", code)
     .eq("to_currency", "PLN")
+    .is("user_id", null)
     .lte("date", date)
     .order("date", { ascending: false })
     .limit(1)
@@ -68,7 +70,45 @@ export async function lookupExchangeRate(
   return { rate: Number(row.rate), source: row.source, date: row.date };
 }
 
-/** Kurs wyceny portfela: najpierw ręczny użytkownika, potem globalny NBP z bazy, na końcu live NBP. */
+async function lookupUserValuationRate(
+  supabase: ServerSupabaseClient,
+  code: string,
+  date: string
+): Promise<{ rate: number; source: string; date: string } | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: userRow, error: userErr } = await supabase
+    .from("exchange_rates")
+    .select("rate, source, date")
+    .eq("user_id", user.id)
+    .eq("from_currency", code)
+    .eq("to_currency", "PLN")
+    .lte("date", date)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (userErr) throw userErr;
+  if (!userRow) return null;
+
+  const row = userRow as { rate: number; source: string; date: string };
+  return { rate: Number(row.rate), source: row.source, date: row.date };
+}
+
+async function liveNbpRate(code: string, date: string): Promise<number | null> {
+  try {
+    const { rates } = await fetchNbpRatesForDate(date);
+    if (rates[code]) return rates[code];
+  } catch {
+    // fallback poniżej
+  }
+  return fetchNbpHistoricalRate(code, date);
+}
+
+/** Kurs wyceny portfela (PLN za 1 jednostkę obcą): ręczny → baza NBP → live NBP. */
 export async function lookupValuationRate(
   supabase: ServerSupabaseClient,
   currency: string,
@@ -77,61 +117,16 @@ export async function lookupValuationRate(
   const code = normalizeCurrency(currency);
   if (code === "PLN") return { rate: 1, source: "pln", date };
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: userRow, error: userErr } = await supabase
-      .from("exchange_rates")
-      .select("rate, source, date")
-      .eq("user_id", user.id)
-      .eq("from_currency", code)
-      .eq("to_currency", "PLN")
-      .lte("date", date)
-      .order("date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (userErr) throw userErr;
-    if (userRow) {
-      const row = userRow as { rate: number; source: string; date: string };
-      return { rate: Number(row.rate), source: row.source, date: row.date };
-    }
-  }
+  const userRate = await lookupUserValuationRate(supabase, code, date);
+  if (userRate) return userRate;
 
   const stored = await lookupExchangeRate(supabase, code, date);
   if (stored) return stored;
 
-  const mid = await fetchNbpHistoricalRate(code, date);
+  const mid = await liveNbpRate(code, date);
   if (mid == null) return null;
 
-  const { data: existing } = await supabase
-    .from("exchange_rates")
-    .select("id")
-    .is("user_id", null)
-    .eq("date", date)
-    .eq("from_currency", code)
-    .eq("to_currency", "PLN")
-    .maybeSingle();
-
-  if (existing) {
-    await supabase
-      .from("exchange_rates")
-      .update({ rate: mid, source: "nbp" } as never)
-      .eq("id", (existing as { id: string }).id);
-  } else {
-    await supabase.from("exchange_rates").insert({
-      user_id: null,
-      date,
-      from_currency: code,
-      to_currency: "PLN",
-      rate: mid,
-      source: "nbp",
-    } as never);
-  }
-
-  return { rate: mid, source: "nbp", date };
+  return { rate: mid, source: "nbp-live", date };
 }
 
 export async function fetchValuationRatesMap(
@@ -143,13 +138,51 @@ export async function fetchValuationRatesMap(
   const unique = [
     ...new Set(currencies.map((c) => normalizeCurrency(c)).filter((c) => c !== "PLN")),
   ];
+  if (unique.length === 0) return map;
+
+  let liveTable: Record<string, number> = {};
+  try {
+    const { rates } = await fetchNbpRatesForDate(date);
+    liveTable = rates;
+  } catch {
+    liveTable = {};
+  }
 
   await Promise.all(
     unique.map(async (code) => {
-      const found = await lookupValuationRate(supabase, code, date);
-      if (found) map.set(code, found.rate);
+      const userRate = await lookupUserValuationRate(supabase, code, date);
+      if (userRate) {
+        map.set(code, userRate.rate);
+        return;
+      }
+
+      const stored = await lookupExchangeRate(supabase, code, date);
+      if (stored) {
+        map.set(code, stored.rate);
+        return;
+      }
+
+      if (liveTable[code]) {
+        map.set(code, liveTable[code]);
+        return;
+      }
+
+      const mid = await fetchNbpHistoricalRate(code, date);
+      if (mid) map.set(code, mid);
     })
   );
 
   return map;
+}
+
+/** Pobiera kursy NBP i zapisuje do bazy (best-effort). */
+export async function ensureValuationRates(
+  supabase: ServerSupabaseClient,
+  date: string
+): Promise<void> {
+  try {
+    await syncNbpExchangeRates(supabase, date);
+  } catch {
+    // live NBP w fetchValuationRatesMap wystarczy do wyświetlania
+  }
 }
