@@ -94,6 +94,65 @@ function resolveForeignNativeAmount(
   return fromPln;
 }
 
+describe("ledgerEntryNative", () => {
+  function ledgerEntryNative(entry: Parameters<typeof ledgerEntryPln>[0]): number {
+    const amount = Number(entry.amount);
+    const amountPln = Number(entry.amount_pln);
+    const rate = Number(entry.exchange_rate) > 0 ? Number(entry.exchange_rate) : 1;
+    const entryCur = normalizeCurrency(entry.currency);
+    const acctCur = accountCurrency(entry.currency, entry.accountCurrency);
+    const sign = amount < 0 ? -1 : amount > 0 ? 1 : amountPln < 0 ? -1 : 1;
+    const absAmt = Math.abs(amount);
+    const absStored = Math.abs(amountPln);
+
+    if (acctCur === "PLN") {
+      if (entryCur === "PLN") return amount;
+      return sign * Math.max(absAmt, convertToPlnAbs(amount, entryCur, rate));
+    }
+    if (entryCur === acctCur) return amount;
+    if (entryCur === "PLN") {
+      if (rate === 1 && absStored > 0 && Math.abs(absAmt - absStored) < 0.02) return amount;
+      if (absStored > 0 && absStored < absAmt * 0.5) return sign * absStored;
+      return sign * convertFromPln(absAmt, acctCur, rate);
+    }
+    const pln = convertToPln(amount, entryCur, rate);
+    return (pln < 0 ? -1 : 1) * convertFromPln(Math.abs(pln), acctCur, rate);
+  }
+
+  it("transfer PLN→EUR: amount w PLN, amount_pln w EUR (stary import)", () => {
+    const native = ledgerEntryNative({
+      amount: 31457.23,
+      amount_pln: 7349.82,
+      currency: "PLN",
+      exchange_rate: 0.233645,
+      accountCurrency: "EUR",
+    });
+    assert.ok(Math.abs(native - 7349.82) < 0.01);
+  });
+
+  it("saldo otwarcia EUR", () => {
+    const native = ledgerEntryNative({
+      amount: 2712.04,
+      amount_pln: 2712.04,
+      currency: "EUR",
+      exchange_rate: 1,
+      accountCurrency: "EUR",
+    });
+    assert.equal(native, 2712.04);
+  });
+
+  it("wydatek EUR z błędną etykietą PLN (rate=1)", () => {
+    const native = ledgerEntryNative({
+      amount: -253.38,
+      amount_pln: -253.38,
+      currency: "PLN",
+      exchange_rate: 1,
+      accountCurrency: "EUR",
+    });
+    assert.equal(native, -253.38);
+  });
+});
+
 describe("ledgerEntryPln", () => {
   it("noga EUR z kursem 0,233645 i błędnym amount_pln 1:1", () => {
     const pln = ledgerEntryPln({

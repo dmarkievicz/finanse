@@ -24,6 +24,48 @@ export interface EntryPlnInput {
   accountCurrency?: string | null;
 }
 
+function entrySign(amount: number, amountPln: number): number {
+  if (amount < 0) return -1;
+  if (amount > 0) return 1;
+  if (amountPln < 0) return -1;
+  if (amountPln > 0) return 1;
+  return 1;
+}
+
+/** Kwota w walucie konta — koryguje stare wpisy PLN na koncie obcym. */
+export function ledgerEntryNative(entry: EntryPlnInput): number {
+  const amount = Number(entry.amount);
+  const amountPln = Number(entry.amount_pln);
+  const rate = Number(entry.exchange_rate) > 0 ? Number(entry.exchange_rate) : 1;
+  const entryCur = normalizeCurrency(entry.currency);
+  const acctCur = accountCurrency(entry.currency, entry.accountCurrency);
+  const sign = entrySign(amount, amountPln);
+  const absAmt = Math.abs(amount);
+  const absStored = Math.abs(amountPln);
+
+  if (acctCur === "PLN") {
+    if (entryCur === "PLN") return amount;
+    return sign * Math.max(absAmt, convertToPlnAbs(amount, entryCur, rate));
+  }
+
+  if (entryCur === acctCur) {
+    return amount;
+  }
+
+  if (entryCur === "PLN") {
+    if (rate === 1 && absStored > 0 && Math.abs(absAmt - absStored) < 0.02) {
+      return amount;
+    }
+    if (absStored > 0 && absStored < absAmt * 0.5) {
+      return sign * absStored;
+    }
+    return sign * convertFromPln(absAmt, acctCur, rate);
+  }
+
+  const pln = convertToPln(amount, entryCur, rate);
+  return (pln < 0 ? -1 : 1) * convertFromPln(Math.abs(pln), acctCur, rate);
+}
+
 /** PLN pojedynczego wpisu — do sumowania sald kont. */
 export function ledgerEntryPln(entry: EntryPlnInput): number {
   const amount = Number(entry.amount);

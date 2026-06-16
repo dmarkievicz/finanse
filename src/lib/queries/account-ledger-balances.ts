@@ -1,10 +1,14 @@
 import type { BalanceMode } from "@/lib/supabase/rpc";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
+import { ledgerEntryNative } from "@/lib/balances/resolve-entry-pln";
 import { normalizeCurrency } from "@/lib/fx/convert";
 
 interface LedgerRow {
   account_id: string;
   amount: number;
+  amount_pln: number;
+  currency: string;
+  exchange_rate: number;
   accounts: { default_currency: string } | null;
   transactions: {
     date: string;
@@ -26,7 +30,7 @@ export async function fetchAccountLedgerBalances(
   const { data, error } = await supabase
     .from("transaction_entries")
     .select(
-      "account_id, amount, accounts(default_currency), transactions!inner(date, deleted_at, is_opening_balance)"
+      "account_id, amount, amount_pln, currency, exchange_rate, accounts(default_currency), transactions!inner(date, deleted_at, is_opening_balance)"
     )
     .is("transactions.deleted_at", null)
     .lte("transactions.date", asOfDate);
@@ -48,8 +52,14 @@ export async function fetchAccountLedgerBalances(
     }
 
     const id = row.account_id;
-    const amount = Number(row.amount);
-    native.set(id, (native.get(id) ?? 0) + amount);
+    const nativeAmt = ledgerEntryNative({
+      amount: Number(row.amount),
+      amount_pln: Number(row.amount_pln),
+      currency: row.currency,
+      exchange_rate: Number(row.exchange_rate),
+      accountCurrency: row.accounts?.default_currency,
+    });
+    native.set(id, (native.get(id) ?? 0) + nativeAmt);
   }
 
   return { native };
