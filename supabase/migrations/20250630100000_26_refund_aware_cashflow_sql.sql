@@ -1,4 +1,4 @@
--- Cashflow i breakdown kategorii: zwroty wydatków → przychód, ujemny przychód → odliczenie
+-- Cashflow i breakdown jak w Excelu: zwroty wydatków obniżają kolumnę wydatków (nie idą do przychodu)
 
 CREATE OR REPLACE FUNCTION get_period_cashflow(
   p_from date,
@@ -43,15 +43,8 @@ AS $$
   ),
   flows AS (
     SELECT
-      CASE
-        WHEN type = 'income' THEN net_pln
-        WHEN type = 'expense' AND net_pln > 0 THEN net_pln
-        ELSE 0
-      END AS income_part,
-      CASE
-        WHEN type = 'expense' AND net_pln < 0 THEN -net_pln
-        ELSE 0
-      END AS expense_part
+      CASE WHEN type = 'income' THEN net_pln ELSE 0 END AS income_part,
+      CASE WHEN type = 'expense' THEN -net_pln ELSE 0 END AS expense_part
     FROM tx_net
   )
   SELECT
@@ -86,7 +79,7 @@ AS $$
     CROSS JOIN settings s
     WHERE t.user_id = auth.uid()
       AND t.deleted_at IS NULL
-      AND t.type IN ('income', 'expense')
+      AND t.type = p_tx_type
       AND t.date BETWEEN p_from AND p_to
       AND t.status NOT IN ('needs_review')
       AND (
@@ -99,20 +92,18 @@ AS $$
     SELECT
       f.id,
       f.category_id,
-      f.type,
       COALESCE(SUM(te.amount_pln), 0) AS net_pln
     FROM filtered f
     JOIN transaction_entries te ON te.transaction_id = f.id
-    GROUP BY f.id, f.category_id, f.type
+    GROUP BY f.id, f.category_id
   ),
   tx_amount AS (
     SELECT
       id,
       category_id,
       CASE
-        WHEN p_tx_type = 'income' AND type = 'income' THEN net_pln
-        WHEN p_tx_type = 'income' AND type = 'expense' AND net_pln > 0 THEN net_pln
-        WHEN p_tx_type = 'expense' AND type = 'expense' AND net_pln < 0 THEN -net_pln
+        WHEN p_tx_type = 'income' THEN net_pln
+        WHEN p_tx_type = 'expense' THEN -net_pln
         ELSE 0::numeric
       END AS amount_pln
     FROM tx_net

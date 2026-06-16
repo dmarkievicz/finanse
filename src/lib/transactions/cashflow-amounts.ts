@@ -1,9 +1,9 @@
 /**
- * Rozdziela wpływ PLN transakcji na składowe przychodu i wydatku (do podsumowań).
+ * Rozdziela wpływ PLN transakcji na składowe przychodu i wydatku (jak w Excelu).
  *
- * - income: kwota ze znakiem (ujemna = odliczenie od przychodu)
- * - expense ujemny wpis: wydatek (wartość dodatnia w kolumnie „wydatki”)
- * - expense dodatni wpis: zwrot (trafia do przychodów dnia)
+ * Suma w kolumnie Type — kwota bazowa ze znakiem z arkusza:
+ * - income: net_pln ze znakiem (ujemny = odliczenie od przychodu)
+ * - expense: -net_pln (zwrot w Excelu ma minus → obniża wydatki, nie trafia do przychodu)
  */
 export function splitTransactionFlow(
   type: string,
@@ -13,9 +13,7 @@ export function splitTransactionFlow(
     return { income: amountPln, expense: 0 };
   }
   if (type === "expense") {
-    if (amountPln < 0) return { income: 0, expense: -amountPln };
-    if (amountPln > 0) return { income: amountPln, expense: 0 };
-    return { income: 0, expense: 0 };
+    return { income: 0, expense: -amountPln };
   }
   return { income: 0, expense: 0 };
 }

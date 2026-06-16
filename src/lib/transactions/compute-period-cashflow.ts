@@ -230,11 +230,11 @@ export async function computeRefundAwareCategoryBreakdown(
     );
 
     for (const t of txs) {
-      const part = splitTransactionFlow(t.type, netByTx.get(t.id) ?? 0);
+      const net = netByTx.get(t.id) ?? 0;
       if (section === "income") {
-        if (part.income !== 0) add(t.category_id, part.income);
-      } else if (part.expense !== 0) {
-        add(t.category_id, part.expense);
+        if (t.type === "income" && net !== 0) add(t.category_id, net);
+      } else if (t.type === "expense" && net !== 0) {
+        add(t.category_id, -net);
       }
     }
 
