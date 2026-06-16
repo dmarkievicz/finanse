@@ -1,9 +1,11 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
-import { computeRefundAwareCashflow } from "@/lib/transactions/compute-period-cashflow";
+import {
+  computeRefundAwareCashflow,
+  computeRefundAwareCategoryBreakdown,
+} from "@/lib/transactions/compute-period-cashflow";
 import type {
   AccountBalance,
   AccountManageRow,
-  CategoryBreakdown,
   MonthlyCashflow,
 } from "@/types/database";
 
@@ -52,12 +54,7 @@ export async function rpcCategoryBreakdown(
   to: string,
   mode: BalanceMode = "current"
 ) {
-  const { data, error } = await supabase.rpc(
-    "get_category_breakdown",
-    { p_from: from, p_to: to, p_mode: mode } as never
-  );
-  if (error) throw error;
-  return (data ?? []) as CategoryBreakdown[];
+  return computeRefundAwareCategoryBreakdown(supabase, from, to, mode, "expense");
 }
 
 export async function rpcCategoryBreakdownTyped(
@@ -67,18 +64,7 @@ export async function rpcCategoryBreakdownTyped(
   txType: "income" | "expense",
   mode: BalanceMode = "current"
 ) {
-  if (txType === "expense") {
-    return rpcCategoryBreakdown(supabase, from, to, mode);
-  }
-  const { data, error } = await supabase.rpc(
-    "get_category_breakdown_typed",
-    { p_from: from, p_to: to, p_mode: mode, p_tx_type: txType } as never
-  );
-  if (error) {
-    if (error.code === "PGRST202") return [] as CategoryBreakdown[];
-    throw error;
-  }
-  return (data ?? []) as CategoryBreakdown[];
+  return computeRefundAwareCategoryBreakdown(supabase, from, to, mode, txType);
 }
 
 export async function rpcCategoriesAnalyticsBundle(

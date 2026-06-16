@@ -1,4 +1,5 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
+import type { CategoryBreakdown } from "@/types/database";
 import { splitTransactionFlow } from "@/lib/transactions/cashflow-amounts";
 import {
   resolveDateRange,
@@ -169,6 +170,87 @@ export async function computeRefundAwareCashflow(
     expense_pln: round2(expense),
     surplus_pln: round2(income - expense),
   };
+}
+
+/** Breakdown kategorii — ta sama logika co refund-aware cashflow. */
+export async function computeRefundAwareCategoryBreakdown(
+  supabase: ServerSupabaseClient,
+  from: string,
+  to: string,
+  mode: BalanceMode = "current",
+  section: "income" | "expense"
+): Promise<CategoryBreakdown[]> {
+  const analysisStartDate = await getAnalysisStartDate(supabase);
+  const clampedFrom = clampFromToAnalysisStart(from, analysisStartDate, mode);
+
+  const { data: cats, error: catsError } = await supabase
+    .from("categories")
+    .select("id, name")
+    .is("deleted_at", null);
+  if (catsError) throw catsError;
+
+  const catName = new Map(
+    ((cats ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name])
+  );
+
+  const byCat = new Map<string | null, { total: number; count: number }>();
+
+  const add = (categoryId: string | null, amount: number) => {
+    if (amount === 0) return;
+    const row = byCat.get(categoryId) ?? { total: 0, count: 0 };
+    row.total += amount;
+    row.count += 1;
+    byCat.set(categoryId, row);
+  };
+
+  const pageSize = 500;
+  let offset = 0;
+
+  while (true) {
+    const { data: txPage, error: txError } = await supabase
+      .from("transactions")
+      .select("id, type, category_id, status, date, created_at")
+      .is("deleted_at", null)
+      .in("type", ["income", "expense"])
+      .neq("status", "needs_review")
+      .gte("date", clampedFrom)
+      .lte("date", to)
+      .order("date", { ascending: true })
+      .order("created_at", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (txError) throw txError;
+
+    const txs = (txPage ?? []) as { id: string; type: string; category_id: string | null }[];
+    if (!txs.length) break;
+
+    const netByTx = await loadEntriesByTxId(
+      supabase,
+      txs.map((t) => t.id)
+    );
+
+    for (const t of txs) {
+      const part = splitTransactionFlow(t.type, netByTx.get(t.id) ?? 0);
+      if (section === "income") {
+        if (part.income !== 0) add(t.category_id, part.income);
+      } else if (part.expense !== 0) {
+        add(t.category_id, part.expense);
+      }
+    }
+
+    if (txs.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return [...byCat.entries()]
+    .map(([category_id, row]) => ({
+      category_id,
+      category_name: category_id ? (catName.get(category_id) ?? null) : "Bez kategorii",
+      total_pln: round2(row.total),
+      tx_count: row.count,
+    }))
+    .filter((r) => r.total_pln !== 0)
+    .sort((a, b) => b.total_pln - a.total_pln);
 }
 
 /** Refund-aware podsumowanie z filtrami listy transakcji. */
